@@ -425,6 +425,14 @@ user_added:
   - "subagent"
   - "current session"
   - "lead agent"
+  - "HappyCoder"
+  - "Max Effort"
+  - "Extra High Effort"
+  - "Continual Learning"
+  - "Self Evolving"
+  - "Apple DIY"
+  - "Qwen3"
+  - "Qwen3-ASR"
   # 用户通过 /add-hotword 添加的术语（人审已通过的高精度信号，跟 LLM 候选学习路径独立）
 
 # Snippets: 文本里出现 key 自动展开成 value (词边界 \b + case-insensitive).

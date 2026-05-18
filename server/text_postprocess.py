@@ -29,6 +29,37 @@ QWEN3_POST_CORRECT = {
     "Cloud Haiku": "Claude Haiku",
     "Cloud Session": "Claude Session",
     "Code X": "Codex",
+    # Brand: voice-stt — ASR often mishears the letter-by-letter spelling
+    "Voice S T T": "voice-stt",
+    "Voice SSTT": "voice-stt",
+    "Voice SST": "voice-stt",
+    "Voice STT": "voice-stt",
+    "Voice的S T T": "voice-stt",   # ASR 在 Voice 跟字母间塞 的
+    "Voice SDK": "voice-stt",      # 2026-05-18 起加,实测高频错听形 (Voice STT/voice-stt 都被听成 Voice SDK)
+    # Brand: voice-claude (archive) — still referenced when discussing OSS prep history
+    "Voice Cloud": "voice-claude",
+    # Brand: Qwen3 (Tongyi 官方英文写法) — Chinese homophones + English-pronunciation variants
+    # 统一 normalize 到官方 "Qwen3",不保留 "千问三" 这个中文译名 (用户要求 2026-05-18)
+    "千问三": "Qwen3",
+    "千万三": "Qwen3",
+    "queen 三": "Qwen3",
+    "queen three": "Qwen3",
+    "queen 3": "Qwen3",
+    "Quin Three": "Qwen3",
+    "Quin 三": "Qwen3",
+    "Quin 3": "Qwen3",
+    "Quinn Three": "Qwen3",        # 实测变体,双 n
+    "Quinn 三": "Qwen3",
+    "Quinn 3": "Qwen3",
+    # Brand: Claude Opus — Ops 是 Opus 截短/弱化形, Mac 是 Max
+    "Cloud Ops Mac": "Claude Opus Max",   # 复合,优先于单独 Cloud Ops
+    "Cloud Ops": "Claude Opus",
+    "CloudOps": "Claude Opus",            # 无空格连写形
+    # Reasoning level: Effort 被听成 Fert
+    "Max Fert": "Max Effort",
+    # Brand: Tailscale — 被空格拆成 Tail Scale, 或听成 Tesscale
+    "Tail Scale": "Tailscale",
+    "Tesscale": "Tailscale",
 }
 
 # 编译一次，按 key 长度降序避免短键先吃掉长键的覆盖
