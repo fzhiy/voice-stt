@@ -12,7 +12,7 @@ Mini Gateway: OpenAI-兼容的 /v1/audio/transcriptions
   python3 mini-gateway.py
   GATEWAY_PORT=9080 WHISPER_PORT=8080 LLM_MODEL=qwen2.5:7b python3 mini-gateway.py
 """
-import os, json, re, subprocess, time, sys
+import os, json, re, subprocess, time, sys, threading
 import urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from email.parser import BytesParser
@@ -33,6 +33,15 @@ DEFAULT_LANG     = os.environ.get("WHISPER_LANG", "zh")
 # 把 paraformer 流式原文 + Qwen3 final 丢进来，LLM 抽出"流式听错→final 正确"的
 # 同音术语对，append 进 jsonl 等用户审核合并进 hotwords.yaml
 LEARN_LOG_PATH   = os.environ.get("LEARN_LOG_PATH", str(Path.home() / "voice-stack" / "hotwords-learned.jsonl"))
+# Auto-promote: 同一 (wrong, right) pair 在最近 AUTO_PROMOTE_WINDOW_DAYS 天的
+# learn 日志里出现 >= AUTO_PROMOTE_THRESHOLD 次,自动写入 hotwords.yaml 的
+# auto_promoted: 段; 每天上限 AUTO_PROMOTE_DAILY_CAP 条防失控.
+AUTO_PROMOTE_THRESHOLD    = int(os.environ.get("AUTO_PROMOTE_THRESHOLD", "3"))
+AUTO_PROMOTE_WINDOW_DAYS  = int(os.environ.get("AUTO_PROMOTE_WINDOW_DAYS", "30"))
+AUTO_PROMOTE_DAILY_CAP    = int(os.environ.get("AUTO_PROMOTE_DAILY_CAP", "5"))
+HOTWORDS_YAML_PATH        = os.environ.get("HOTWORDS_YAML_PATH", str(Path(__file__).parent / "hotwords.yaml"))
+AUTO_PROMOTE_LOG          = os.environ.get("AUTO_PROMOTE_LOG", str(Path.home() / "voice-stack" / "hotwords-auto-promoted.jsonl"))
+_auto_promote_lock        = threading.Lock()
 
 # Whisper initial_prompt：常见编程 / AI agent 术语 + 本仓库语音栈词。
 # 引导 ASR 把同音/破词解析为正确的 token。Whisper 的 prompt 上限约 224 token，
@@ -384,6 +393,164 @@ def llm_learn_hotwords(streaming: str, final: str) -> list:
         return []
 
 
+def _count_recent_pair(wrong: str, right: str) -> int:
+    """数 (wrong, right) 对在最近 AUTO_PROMOTE_WINDOW_DAYS 天里出现几次. 不存在视作 0."""
+    if not os.path.exists(LEARN_LOG_PATH):
+        return 0
+    cutoff = time.time() - AUTO_PROMOTE_WINDOW_DAYS * 86400
+    count = 0
+    try:
+        with open(LEARN_LOG_PATH, "r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if rec.get("ts", 0) < cutoff:
+                    continue
+                for c in rec.get("candidates", []) or []:
+                    if c.get("wrong") == wrong and c.get("right") == right:
+                        count += 1
+    except Exception as e:
+        log(f"  auto-promote: _count_recent_pair err {e}")
+        return 0
+    return count
+
+
+def _count_today_promotions() -> int:
+    """数今天已经 auto-promote 出去几个 term, 用来卡 daily cap."""
+    if not os.path.exists(AUTO_PROMOTE_LOG):
+        return 0
+    today = time.strftime("%Y-%m-%d")
+    count = 0
+    try:
+        with open(AUTO_PROMOTE_LOG, "r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if (rec.get("promoted_at") or "").startswith(today):
+                    count += 1
+    except Exception as e:
+        log(f"  auto-promote: _count_today_promotions err {e}")
+        return 0
+    return count
+
+
+def _load_existing_terms() -> set:
+    """收集所有已经存在的 canonical term, 避免重复 promote.
+    覆盖: hotwords.yaml 任意 list 段 (user_added / auto_promoted / 语言分类) +
+    mappings 段的 RHS + text_postprocess.QWEN3_POST_CORRECT 的 values."""
+    known = set()
+    try:
+        import text_postprocess
+        known.update(text_postprocess.QWEN3_POST_CORRECT.values())
+    except Exception:
+        pass
+    try:
+        import yaml
+        with open(HOTWORDS_YAML_PATH, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        for k, v in data.items():
+            if isinstance(v, list):
+                for item in v:
+                    if isinstance(item, str):
+                        known.add(item)
+            elif isinstance(v, dict) and k == "mappings":
+                for rhs in v.values():
+                    if isinstance(rhs, str):
+                        known.add(rhs)
+    except Exception as e:
+        log(f"  auto-promote: _load_existing_terms err {e}")
+    return known
+
+
+def _append_to_auto_promoted_section(term: str) -> bool:
+    """把 term 追加到 hotwords.yaml 的 auto_promoted: 段; 段不存在则在文末新建.
+    用纯文本编辑而非 yaml round-trip, 避免吞掉注释和原有格式. 原子写入 (.tmp + rename)."""
+    try:
+        with open(HOTWORDS_YAML_PATH, "r", encoding="utf-8") as f:
+            content = f.read()
+        marker = "\nauto_promoted:\n"
+        new_line = f'  - "{term}"\n'
+        if marker in content:
+            # 找到 auto_promoted: 段, 追加到段尾 (下一段或 EOF 之前).
+            idx = content.index(marker) + len(marker)
+            tail = content[idx:]
+            section_end_offset = 0
+            for line in tail.splitlines(keepends=True):
+                if line and not (line.startswith(" ") or line.startswith("\t") or line.startswith("#") or line == "\n"):
+                    break
+                section_end_offset += len(line)
+            insert_at = idx + section_end_offset
+            new_content = content[:insert_at] + new_line + content[insert_at:]
+        else:
+            if not content.endswith("\n"):
+                content += "\n"
+            header = (
+                f"\n# Auto-promoted: terms auto-added by /v1/text/learn after >= "
+                f"{AUTO_PROMOTE_THRESHOLD} occurrences in the last "
+                f"{AUTO_PROMOTE_WINDOW_DAYS} days. Audit log: "
+                f"{AUTO_PROMOTE_LOG}. Daily cap: {AUTO_PROMOTE_DAILY_CAP}.\n"
+                f"# This section is machine-managed — do not hand-edit; if you reject a "
+                f"term, move it from here, or it'll be re-added on next learn event.\n"
+            )
+            new_content = content + header + "auto_promoted:\n" + new_line
+        tmp_path = HOTWORDS_YAML_PATH + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        os.replace(tmp_path, HOTWORDS_YAML_PATH)
+        return True
+    except Exception as e:
+        log(f"  auto-promote: _append_to_auto_promoted_section err {e}")
+        return False
+
+
+def auto_promote_candidates(candidates: list) -> list:
+    """每条 candidate 过三道闸: (1) right 还没在 hotwords/post-correct/mappings 里;
+    (2) (wrong, right) 在窗口内出现 >= 阈值; (3) 今天 promotion 还没满 cap.
+    通过则写入 hotwords.yaml + audit log. 返回实际 promote 出去的 term 列表.
+    在 worker 线程里跑, 单例锁 _auto_promote_lock 串行化 yaml 写."""
+    if not candidates:
+        return []
+    promoted = []
+    with _auto_promote_lock:
+        today_count = _count_today_promotions()
+        if today_count >= AUTO_PROMOTE_DAILY_CAP:
+            log(f"  auto-promote: skipped — daily cap {AUTO_PROMOTE_DAILY_CAP} hit ({today_count}/{AUTO_PROMOTE_DAILY_CAP})")
+            return []
+        known = _load_existing_terms()
+        for c in candidates:
+            if today_count >= AUTO_PROMOTE_DAILY_CAP:
+                break
+            right = (c.get("right") or "").strip()
+            wrong = (c.get("wrong") or "").strip()
+            if not right or right in known:
+                continue
+            count = _count_recent_pair(wrong, right)
+            if count < AUTO_PROMOTE_THRESHOLD:
+                continue
+            if not _append_to_auto_promoted_section(right):
+                continue
+            try:
+                os.makedirs(os.path.dirname(AUTO_PROMOTE_LOG), exist_ok=True)
+                with open(AUTO_PROMOTE_LOG, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({
+                        "promoted_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                        "term": right,
+                        "from_wrong": wrong,
+                        "candidate_count": count,
+                    }, ensure_ascii=False) + "\n")
+            except Exception as e:
+                log(f"  auto-promote: audit log write err {e}")
+            promoted.append(right)
+            known.add(right)
+            today_count += 1
+            log(f"  auto-promoted '{right}' (from '{wrong}', count={count} in {AUTO_PROMOTE_WINDOW_DAYS}d)")
+    return promoted
+
+
 def parse_multipart(body, boundary):
     """简易 multipart 解析器。返回 dict<name, (filename or None, content bytes)>"""
     parts = body.split(b"--" + boundary)
@@ -522,6 +689,9 @@ async def learn_endpoint(req: Request):
                 }
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
             log(f"  learn -> appended {len(candidates)} to {LEARN_LOG_PATH}")
+            # Fire-and-forget: 跑 auto-promote 在 worker 线程, 不阻塞响应也不影响 latency.
+            # 历史日志扫描会随文件增长变慢, 不要等它.
+            loop.run_in_executor(None, auto_promote_candidates, candidates)
         except Exception as e:
             log(f"  learn 落盘失败: {e}")
     return {"candidates": candidates}
@@ -562,6 +732,7 @@ if __name__ == "__main__":
     log(f"Mini Gateway (FastAPI) on 0.0.0.0:{PORT}")
     log(f"  whisper backend: {WHISPER_HOST}:{WHISPER_PORT}")
     log(f"  llm: {LLM_BASE_URL} ({LLM_MODEL}) enabled={ENABLE_LLM}")
+    log(f"  auto-promote: >={AUTO_PROMOTE_THRESHOLD} hits in {AUTO_PROMOTE_WINDOW_DAYS}d, cap {AUTO_PROMOTE_DAILY_CAP}/day -> {HOTWORDS_YAML_PATH}")
     log(f"  default language: {DEFAULT_LANG}")
     try:
         # workers=1 故意单 worker: Ollama 服务一次只能 1 个 chat, 多 worker 不增并发,
