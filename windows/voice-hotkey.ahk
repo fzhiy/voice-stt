@@ -53,10 +53,6 @@ RENDERER_AHK_SCRIPT  := A_ScriptDir . "\voice-preview-renderer-fallback.ahk"
 AHK64_EXE_PATH       := EnvGet("LOCALAPPDATA") . "\Programs\AutoHotkey\v2\AutoHotkey64.exe"
 g_RendererPid        := 0   ; renderer process pid; 0 = not yet started / died
 
-; Paste-target 安全阈值. 录音 >= PASTE_CONFIRM_DURATION_SEC 秒, 或 press/release 焦点
-; 漂了, 都必须走 3s 超时的 MsgBox 确认; 默认行为 (超时) = 不粘 (文本仍在 recovery log).
-PASTE_CONFIRM_DURATION_SEC := 30
-PASTE_CONFIRM_TIMEOUT_SEC  := 3
 
 g_DaemonPid := 0   ; mic daemon PS 进程 pid; 0 表示未启动 / 已被 quit
 
@@ -236,33 +232,6 @@ WriteRecoveryRecord(text, started_tick, target_hwnd, release_hwnd, used_hwnd, pa
     }
 }
 
-; 决定本次 paste 是否安全静默执行. 返回 "ok" / "user_aborted" / "timeout_aborted" / "hwnd_invalid".
-; 触发确认的条件 (任一即弹 MsgBox):
-;   - 录音时长 >= PASTE_CONFIRM_DURATION_SEC (长录音, 粘错代价大)
-;   - press_hwnd != release_hwnd (焦点中途漂了, 意图不明)
-;   - press_hwnd 已无效 / spurious (没有靠谱目标)
-; 弹的 MsgBox 带 PASTE_CONFIRM_TIMEOUT_SEC 秒超时, 默认 = 不粘 (不点 Y 不算同意).
-ConfirmPaste(duration_sec, press_hwnd, release_hwnd, text)
-{
-    if !press_hwnd || !WinExist("ahk_id " press_hwnd) || IsSpuriousWindow(press_hwnd)
-        return "hwnd_invalid"
-    needs_confirm := (duration_sec >= PASTE_CONFIRM_DURATION_SEC) || (release_hwnd && release_hwnd != press_hwnd)
-    if !needs_confirm
-        return "ok"
-    title_p := GetWindowTitle(press_hwnd)
-    if (release_hwnd && release_hwnd != press_hwnd && WinExist("ahk_id " release_hwnd)) {
-        title_r := GetWindowTitle(release_hwnd)
-        msg := Format("录音 {1}s, 焦点漂了:`n按下: {2}`n松开: {3}`n`n粘到 [按下] 目标?  (Y=粘 / N 或 {4}s 超时=不粘)`n`n文本已存 transcripts JSONL, 不会丢.", Round(duration_sec, 1), title_p, title_r, PASTE_CONFIRM_TIMEOUT_SEC)
-    } else {
-        msg := Format("长录音 {1}s.`n`n粘到 {2}?  (Y=粘 / N 或 {3}s 超时=不粘)`n`n文本已存 transcripts JSONL, 不会丢.", Round(duration_sec, 1), title_p, PASTE_CONFIRM_TIMEOUT_SEC)
-    }
-    result := MsgBox(msg, "voice-stt 确认 paste 目标", "YesNo IconWarning T" PASTE_CONFIRM_TIMEOUT_SEC)
-    if result = "Yes"
-        return "ok"
-    if result = "No"
-        return "user_aborted"
-    return "timeout_aborted"
-}
 
 ; 等转写完成：以"OutputText 文件出现"或"PS 进程死亡"为终止信号
 ; 跟录音/转写时长解耦；只在 PS 真挂（罕见）时靠 10 分钟硬上限兜底
@@ -562,22 +531,13 @@ DoVoiceStream()
             return
         }
 
-        ; Paste-target 安全门: 录音 < 30s 且 press == release 静默走原路径;
-        ; 否则 MsgBox 3s 倒计时确认, 超时不粘 (文本已落 recovery log).
-        duration_sec := Round((A_TickCount - tick) / 1000, 2)
-        paste_decision := ConfirmPaste(duration_sec, target_hwnd, release_hwnd, text)
-        FileAppend Format("[{1}] paste-decision: status={2} duration={3}s press={4} release={5}`n", FormatTime(, "HH:mm:ss"), paste_decision, duration_sec, target_hwnd, release_hwnd), dbg
-        if paste_decision = "ok" {
-            ; press_hwnd 在新设计里是权威目标. PasteAndRestoreClipboard 两参相同 = 强制走 press.
-            used_hwnd := PasteAndRestoreClipboard(text, target_hwnd, target_hwnd)
-            WriteRecoveryRecord(text, tick, target_hwnd, release_hwnd, used_hwnd, "ok")
-            TrayTip "已粘贴 → " GetWindowTitle(used_hwnd), text, 1
-            FileAppend Format("[{1}] === pasted: press={2} release={3} used={4} title='{5}' ===`n`n", FormatTime(, "HH:mm:ss"), target_hwnd, release_hwnd, used_hwnd, GetWindowTitle(used_hwnd)), dbg
-        } else {
-            WriteRecoveryRecord(text, tick, target_hwnd, release_hwnd, 0, paste_decision)
-            TrayTip "未粘贴 [" paste_decision "]", "文本已存 transcripts JSONL, 用 transcript-grep.sh 取回", 4
-            FileAppend Format("[{1}] === skipped paste: status={2} ===`n`n", FormatTime(, "HH:mm:ss"), paste_decision), dbg
-        }
+        ; 直接 paste, 不弹确认窗 (用户明确要求: "录完直接粘, 别问").
+        ; release_hwnd 为主目标 (松开瞬间焦点 = 用户语义意图), target_hwnd 兜底.
+        ; 万一贴错窗口, 文本仍在 recovery log 里可 grep 回来.
+        used_hwnd := PasteAndRestoreClipboard(text, release_hwnd, target_hwnd)
+        WriteRecoveryRecord(text, tick, target_hwnd, release_hwnd, used_hwnd, "ok")
+        TrayTip "已粘贴 → " GetWindowTitle(used_hwnd), text, 1
+        FileAppend Format("[{1}] === pasted: press={2} release={3} used={4} title='{5}' ===`n`n", FormatTime(, "HH:mm:ss"), target_hwnd, release_hwnd, used_hwnd, GetWindowTitle(used_hwnd)), dbg
         for f in [out, sig, err]
             SafeFileDelete f
     } catch as e {
