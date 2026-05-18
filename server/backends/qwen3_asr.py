@@ -152,6 +152,15 @@ class Qwen3ASRBackend(FinalPassBackend):
             if not results:
                 return ("", "")
             raw = (results[0].text or "").strip()
+            # Context-echo guard: 短/弱音频 (尤其 PTT 启动 pre-roll 段) 偶尔触发 hallucination,
+            # 模型放弃听音频, 直接回 context (system prompt) 里的 hotwords 列表片段当 transcription.
+            # 实测 4 例: rms_p50 0.03~0.10, 时长 0.5~1.5s, 输出逐字逐句对应
+            # hotwords.yaml 的 user_added 段 ('API, pane, fork, repo, Deck, TMUX, ...').
+            # 判定: raw 前 30 字符整段在 _context 里出现 → 几乎一定是 echo (真转写不可能含 prompt 字面值).
+            # < 20 字短输出放行避免误杀单词级 PTT (如 '对', 'OK', 单个 hotword).
+            if raw and len(raw) >= 20 and self._context and raw[:30] in self._context:
+                _log(f"  {log_tag} DROP context-echo: raw='{raw[:60]}...'")
+                return ("", "")
             text = text_postprocess.qwen3_post_correct(raw)
             lang = results[0].language or ""
             if arr.size != orig_size:
