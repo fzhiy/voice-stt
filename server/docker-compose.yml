@@ -1,0 +1,40 @@
+# 部署到远端 GPU 主机的 ~/voice-stack/
+# 复用模式：复用宿主机已装好的 whisper-server 和 Ollama
+# 启动：docker compose --env-file .env.server up -d
+
+services:
+  gateway:
+    image: ghcr.io/omachala/diction-gateway:latest
+    container_name: voice-gateway
+    restart: unless-stopped
+
+    # Gateway 容器内监听 8080（硬编码），用 port mapping 暴露到宿主机 GATEWAY_PORT
+    ports:
+      - "${GATEWAY_PORT:-9080}:8080"
+
+    # 让容器内能用 host.docker.internal 访问宿主机的 127.0.0.1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    environment:
+      # === Whisper 后端：宿主机 whisper-server ===
+      # 默认 8080 (small CPU, 2s/11s 音频); 改 WHISPER_PORT=8081 切 large
+      CUSTOM_BACKEND_URL: http://host.docker.internal:${WHISPER_PORT:-8080}/audio/transcriptions
+      CUSTOM_BACKEND_MODEL: ${WHISPER_MODEL:-small}
+      CUSTOM_BACKEND_NEEDS_WAV: "true"
+      DEFAULT_MODEL: ${WHISPER_MODEL:-small}
+      DEFAULT_LANGUAGE: ${WHISPER_LANG:-zh}
+
+      # === LLM 清洗（复用宿主机 Ollama）===
+      LLM_BASE_URL: http://host.docker.internal:11434/v1
+      LLM_API_KEY: ollama
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:7b}
+      LLM_PROMPT: |
+        你是一个语音转写文本润色助手。请按以下规则处理输入：
+        1. 移除「嗯」「啊」「这个」「那个」等口语填充词
+        2. 修正明显的语音识别错误（同音字、术语错误）
+        3. 添加合适的中英文标点（中文用「，。：；！？」，代码/英文术语保留半角）
+        4. 保持原意，不添加或删除信息
+        5. 编程术语保持原样（如 OAuth、regex、JSON、localhost、git、Docker、Claude Code、Codex、WSL、Tailscale）
+        6. 直接输出润色后的文本，不要任何解释、前缀或引号
+        7. 中英文混合句子保持自然的混排

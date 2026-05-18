@@ -1,0 +1,53 @@
+.env
+!.env.example
+*.wav
+*.mp3
+*.m4a
+*.log
+
+# Installer build output
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# 临时录音
+windows/temp/
+wsl/temp/
+
+# 依赖缓存
+node_modules/
+__pycache__/
+*.pyc
+*.log
+.ps-stderr.log
+
+# Claude Code workspace — excluded from public repo
+.claude/
+
+# wsl/add-hotword.sh 的 flock 文件
+.add-hotword.lock
+.hotword.lock
+
+# Internal-only deploy / dev artifacts — kept out of the public repo
+deploy/vps-setup.md
+docs/dev/artifacts/
+docs/dev/changes/
+
+# Personal cross-device / AI-tool integrations — kept local (decoupled from voice-stt itself)
+infra/wsl/
+wsl/claude-voice.sh
+wsl/codex-voice.sh
+wsl/happy-voice.sh
+
+# Internal license analysis of the dropped windows/lib/ (not shipped in v0.1)
+docs/dev/vendor-license-report.md
+
+# Test infra not yet wired to CI — kept local until pytest config + workflow exist
+tests/

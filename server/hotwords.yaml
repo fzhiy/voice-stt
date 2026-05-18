@@ -1,0 +1,454 @@
+# 语音转写热词词典
+# 用途：
+#   1. Paraformer-zh-streaming 的 hotword 参数（空格分隔成 list）
+#      作用：ASR 阶段直接 boost 这些词，"流失"→"流式" 这类同音错少
+#   2. LLM polish 的 system prompt 注入（按分类分桶）
+#      作用：polish 知道"使用体" 大概率是"使用体验"，幻觉成"使用者"概率降低
+#
+# 维护规则：
+#   - 只放高频且容易被错听的词
+#   - 太通用的中文常用词（"知道""然后""所以"）不放，否则白名单变噪音
+#   - 全部用规范写法（驼峰、连字符），不要全小写
+
+ai_agent:
+  # ML / DL 基础
+  - transformer
+  - attention
+  - encoder
+  - decoder
+  - embedding
+  - tokenizer
+  - MoE
+  - MLP
+  - layer norm
+  - softmax
+  - cross-entropy
+  - gradient
+  - backprop
+  - optimizer
+  - AdamW
+  - learning rate
+  - batch size
+  - checkpoint
+  # Fine-tuning / alignment
+  - finetune
+  - LoRA
+  - QLoRA
+  - PEFT
+  - RLHF
+  - DPO
+  - SFT
+  - instruction tuning
+  # LLM / prompting
+  - prompt engineering
+  - few-shot
+  - zero-shot
+  - chain-of-thought
+  - ReAct
+  - tree-of-thought
+  - RAG
+  - retrieval-augmented
+  - vector database
+  - function calling
+  - tool use
+  - structured output
+  - JSON mode
+  - system prompt
+  - context window
+  # Agent ecosystem (Claude Code core vocab)
+  - agent
+  - MCP
+  - hook
+  - skill
+  - subagent
+  - plan mode
+  - slash command
+  - marketplace
+  - statusline
+  - output style
+  - Claude Code
+  - Codex
+  - Cursor
+  - agent-deck
+  - claude-hud
+  - Web Agent
+  - web agent
+  - WebAgent
+  - Browser Agent
+  - Horizon task
+  - Horizon Tasks
+  - Wispr Flow
+  - Typeless
+  - superwhisper
+  - Talon
+  # Models / products
+  - GPT-4
+  - Claude
+  - Gemini
+  - Llama
+  - qwen
+  - DeepSeek
+  - Yi
+  - Mistral
+  - Whisper
+  - Paraformer
+  - SenseVoice
+  - FunASR
+  - Ollama
+  - vLLM
+  - llama.cpp
+
+cs_research:
+  - arxiv
+  - abstract
+  - related work
+  - ablation
+  - baseline
+  - benchmark
+  - SOTA
+  - state-of-the-art
+  - novel
+  - contribution
+  - limitation
+  - reproducibility
+  # Metrics
+  - F1 score
+  - precision
+  - recall
+  - accuracy
+  - ROC
+  - AUC
+  - BLEU
+  - ROUGE
+  - WER
+  - CER
+  - perplexity
+  - p-value
+  - t-test
+  # ML stats
+  - hyperparameter
+  - gradient descent
+  - loss function
+  - regularization
+  - overfit
+  - underfit
+  - generalization
+  - training set
+  - validation set
+  - test set
+  - k-fold
+  - cross-validation
+  - confusion matrix
+  - early stopping
+  # Frameworks / tools
+  - PyTorch
+  - TensorFlow
+  - JAX
+  - HuggingFace
+  - Transformers
+  - Datasets
+  - scikit-learn
+  - pandas
+  - numpy
+  - matplotlib
+  - Jupyter
+  - Colab
+  - wandb
+  - TensorBoard
+  - MLflow
+
+software_engineering:
+  # Languages / frameworks
+  - Python
+  - TypeScript
+  - JavaScript
+  - Rust
+  - Go
+  - C++
+  - React
+  - Next.js
+  - FastAPI
+  - Django
+  - Flask
+  - Vue
+  - Svelte
+  - Tailwind
+  # DevOps
+  - Docker
+  - Kubernetes
+  - k8s
+  - Terraform
+  - Ansible
+  - GitHub Actions
+  - GitLab CI
+  - CI/CD
+  - blue-green deployment
+  - canary
+  - rollback
+  - hotfix
+  # Engineering concepts
+  - refactor
+  - lint
+  - typecheck
+  - regression
+  - unit test
+  - integration test
+  - e2e test
+  - mock
+  - stub
+  - fixture
+  - debug
+  - technical debt
+  - code review
+  - pull request
+  - PR
+  - merge conflict
+  - rebase
+  - cherry-pick
+  - squash
+  - feature branch
+  # API / web
+  - REST API
+  - GraphQL
+  - gRPC
+  - WebSocket
+  - OAuth
+  - JWT
+  - OpenID
+  - SSO
+  - CSRF
+  - XSS
+  - SQL injection
+  - rate limit
+  - throttling
+  - caching
+  - memoization
+  - lazy loading
+  # Async / concurrency
+  - async
+  - await
+  - promise
+  - callback
+  - mutex
+  - semaphore
+  - race condition
+  - deadlock
+  - idempotent
+  - atomic
+  - transaction
+  - ACID
+  - eventual consistency
+  # Databases
+  - PostgreSQL
+  - MySQL
+  - Redis
+  - MongoDB
+  - SQLite
+  - DuckDB
+  - Pinecone
+  - Weaviate
+  - ChromaDB
+  - Qdrant
+  # Voice / our stack
+  - ffmpeg
+  - dshow
+  - AHK
+  - AutoHotkey
+  - PowerShell
+  - WSL
+  - WebSocket
+  - PCM
+  - mini-gateway
+  - hotkey
+  - PTT
+
+chinese_tech:
+  # 通用工程
+  - 流式
+  - 异步
+  - 并发
+  - 协程
+  - 线程
+  - 进程
+  - 死锁
+  - 竞态
+  - 引用计数
+  - 闭包
+  - 部署
+  - 推理
+  - 显存
+  - 时延
+  - 吞吐
+  - 长尾
+  # AI 中文
+  - 大模型
+  - 智能体
+  - 训练
+  - 微调
+  - 蒸馏
+  - 量化
+  - 上下文
+  - 词向量
+  - 注意力
+  - 编码器
+  - 解码器
+  - 多模态
+  - 检索增强
+  - 工具调用
+  - 思维链
+  - 提示词
+  # 工程模式
+  - 重构
+  - 调试
+  - 中间件
+  - 缓存
+  - 队列
+  - 主从
+  - 副本
+  - 一致性
+  - 幂等
+  - 限流
+  - 熔断
+  - 灰度
+  - 回滚
+  - 蓝绿
+  # 用户工作流
+  - 录入
+  - 转写
+  - 转录
+  - 粘贴
+  - 剪贴板
+  - 录音
+  - 麦克风
+  - 热键
+  - 信号文件
+  - 简体中文
+  - 繁体中文
+  - 浮窗
+  - 实时
+  - 流式输出
+  - 自纠错
+
+english_tech_general:
+  # 纯英文 dev/CLI 高频词，不属于产品名/框架名但同样需要 boost
+  # （否则 Qwen3 会音译，比如 "final" -> "白脑"）
+  # Git / VCS
+  - commit
+  - merge
+  - rebase
+  - push
+  - pull
+  - branch
+  - checkout
+  - cherry-pick
+  - stash
+  - revert
+  - amend
+  - origin
+  - upstream
+  - main
+  - master
+  - HEAD
+  # Build / lifecycle
+  - build
+  - install
+  - update
+  - upgrade
+  - run
+  - start
+  - stop
+  - restart
+  - reload
+  - kill
+  - init
+  - setup
+  - config
+  - deploy
+  # Test / quality
+  - test
+  - check
+  - debug
+  - trace
+  - log
+  - error
+  - warning
+  - info
+  - fail
+  - pass
+  - skip
+  - mock
+  - assert
+  - expect
+  # General programming
+  # null/true/false 是 YAML 保留字，必须引号，否则 PyYAML 解析成 Python None/bool
+  - final
+  - default
+  - "null"
+  - "none"
+  - "true"
+  - "false"
+  - return
+  - throw
+  - try
+  - catch
+  - finally
+  - public
+  - private
+  - static
+  - const
+  - var
+  - let
+
+user_added:
+  - "API"
+  - "pane"
+  - "fork"
+  - "repo"
+  - "Deck"
+  - "TMUX"
+  - "Teammate"
+  - "Mac"
+  - "ASR"
+  - "ElevenLabs"
+  - "Blink"
+  - "SSH"
+  - "iOS"
+  - "PWA"
+  - "Happy"
+  - "Type for me"
+  - "iPhone"
+  - "ttyd"
+  - "VPS"
+  - "worktree"
+  - "Tailscale"
+  - "Browser Use"
+  - "subagent"
+  - "current session"
+  - "lead agent"
+  # 用户通过 /add-hotword 添加的术语（人审已通过的高精度信号，跟 LLM 候选学习路径独立）
+
+# Snippets: 文本里出现 key 自动展开成 value (词边界 \b + case-insensitive).
+# 例如说话"my email"被 ASR 转成 "my-email", 经 snippet 展开成真邮箱.
+# 慎用: 跟 hotwords / post-correct 同 namespace 容易冲突, 测试后再加.
+# snippets:
+#   my-email: "you@example.com"
+#   my-github: "github.com/yourname"
+
+# Mappings: final-text 替换层. key (LHS) 在 final 文本里出现就被替换为 value (RHS).
+# - 仅作用于 final, 不作用于 partial (避免 partial 一闪一变让用户分神).
+# - LHS 大小写不敏感; RHS 大小写保留; 多 mapping 时长 LHS 优先, 避免子串吞并.
+# - ASCII LHS 用 \b 词边界保护; 含 CJK 的 LHS 走子串替换 (CJK 之间没 \b).
+# - 写入由 .claude/skills/vocab/SKILL.md 负责: 五条白名单过滤规则把关 (短词/常用词/
+#   Levenshtein 过大/恒等替换 -> 丢弃), 避免污染常用对话. 直接手写也可以.
+# - LHS 含空格 / 标点的务必用引号包起来, 防 yaml 解析歧义.
+# 例:
+# mappings:
+#   "cloud code": "Claude Code"
+#   "ghosty": "Ghostty"
+#   "should also S": "Shift+Alt+S"
+mappings:
+  "沙贝 agent": "subagent"
+  "萨贝 agent": "subagent"
+  "撒贝 agent": "subagent"
+  "四大杯间的": "subagent"
+  "四大杯间": "subagent"
