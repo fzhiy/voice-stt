@@ -189,6 +189,54 @@ Two options:
 
 ---
 
+## Cloud ASR providers
+
+### Tencent Cloud: `code=4004 '资源包耗尽，请开通后付费或者购买资源包'`
+
+Three independent causes, ordered by frequency:
+
+1. **You're outside mainland China.** Tencent treats cross-border traffic as
+   a separate billing channel, and the 5h/月 free tier does **not** apply.
+   See [`docs/dev/changes/2026-05-19-asr-providers-m2-m4.md`](dev/changes/2026-05-19-asr-providers-m2-m4.md#tencent-asr-realtime)
+   for the full story. Practical fix for overseas users: keep
+   `voice-stt-tencent.service` disabled and use Volcano (works cross-border)
+   or your self-hosted FunASR/Qwen3-ASR.
+
+2. **CAM sub-user is missing `QcloudFinanceFullAccess`.** With only
+   `QcloudASRFullAccess`, the WS endpoint can call the API but cannot read
+   billing channels to consume the free tier. Add the finance policy in
+   CAM console.
+
+3. **「实时语音识别」 sub-product wasn't activated.** Tencent ASR is
+   actually 4 independent products. The "ASR" toggle in console may only
+   activate 一句话识别 (HTTP); the WS streaming endpoint
+   (实时语音识别) needs separate activation. Diagnostic: if
+   `SentenceRecognition` HTTP API works but WS returns 4004, this is your
+   issue. Open https://console.cloud.tencent.com/asr/ and look for the
+   "实时语音识别" tab specifically.
+
+### Tencent / Volcano: `code=4002 '鉴权失败'`
+
+Almost always: the AppID in the WS URL path doesn't match the account that
+owns the SecretId/SecretKey (Tencent) or App Key (Volcano). The two-digit
+prefix is the giveaway:
+
+- **AppID** (Tencent): ~10 digits, typically starts with `1250` / `1251` /
+  `1253` / `1300` / `1301`
+- **UIN / 账号 ID** (Tencent): also ~10-12 digits, typically starts with
+  `100`
+
+These are **different numbers** — UIN is the user's identity, AppID is the
+resource namespace. They share the same digit length but mean different
+things. To programmatically discover AppID from a SecretId/Key pair:
+
+```bash
+# Calls cam:GetUserAppId. Returns: {"Uin": ..., "OwnerUin": ..., "AppId": ...}
+python server/tools/tencent_get_appid.py
+```
+
+---
+
 ## Logs to share when asking for help
 
 When opening an issue, attach the relevant log slice (redact any PII first):
