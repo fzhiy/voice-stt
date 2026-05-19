@@ -16,10 +16,10 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$OutputText,
     [string]$PartialTextPath = "",
-    [string]$WsUrl           = "ws://127.0.0.1:18082/",   # WSL ssh tunnel 18082 → remote 8082（remote 8082 在 Windows 端被别的进程占了）
+    [string]$WsUrl           = "ws://127.0.0.1:18082/",   # ASR server WS endpoint (local, or SSH-tunneled to a remote GPU host)
     [int]$DeviceId           = 0,
     [string]$DeviceName      = "",
-    [string]$MicChannel      = 'left',
+    [string]$MicChannel      = 'mix',
     [int]$Rate               = 16000,
     # Daemon pipe (voice-mic-daemon.ps1). Try this first for warm-mic pre-roll;
     # fall back to local ffmpeg if not reachable in $DaemonConnectTimeoutMs.

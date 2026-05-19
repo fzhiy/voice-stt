@@ -29,7 +29,6 @@ Shift+Alt+P  →  read selected text aloud (SAPI TTS, zero-latency)
   (FunASR + Qwen3-ASR, sherpa-onnx CPU) and cloud (火山豆包 / Tencent / 讯飞)
   with `Shift+Alt+E`; all speak the same WS protocol. See [docs/PROVIDERS.md](docs/PROVIDERS.md)
 - **Warm mic capture** with `~300ms` pre-roll ring buffer (no clipped first syllable)
-- **Left-channel-only recording** rescues headsets with one broken mic element
 - **Hotword auto-learning** — terms appearing ≥ 3× in 30 days get promoted into
   `hotwords.yaml` automatically; works with deterministic post-correct mappings
 - **Local recovery log** — every dictation event in monthly JSONL with a

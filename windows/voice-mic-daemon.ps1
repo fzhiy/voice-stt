@@ -22,7 +22,7 @@ param(
     [string]$DeviceName = "",
     [int]$Rate          = 16000,
     [int]$BufferMs      = 500,
-    [string]$MicChannel = 'left',
+    [string]$MicChannel = 'mix',
     [string]$PipeName   = 'voice-mic-pcm-server',
     [int]$MaxClients    = 4
 )

@@ -31,7 +31,6 @@ Shift+Alt+P  →  朗读选中文本 (SAPI TTS, 零延迟)
   sherpa-onnx CPU) 和云端 (火山豆包 / 腾讯云 / 讯飞) 同协议, `Shift+Alt+E`
   一键切换。详见 [docs/PROVIDERS.md](docs/PROVIDERS.md)
 - **暖捕获 mic** 含 `~300ms` 前置缓冲, 不吞首字
-- **左声道单独录** — 救戴坏的右声道单耳麦
 - **Hotwords 自动学习** — `≥ 3 次/30 天` 的纠正自动写进 `hotwords.yaml`
 - **本地恢复日志** — 每次听写写一行 JSONL, `transcript-grep.sh` 帮你找回; 转写
   文本同时留在剪贴板, 焦点漂走也能手动 Ctrl+V 重贴

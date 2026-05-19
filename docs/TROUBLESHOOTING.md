@@ -69,9 +69,9 @@ Common patterns:
 ### Caption shows but transcript is wrong / garbled
 
 - Mic level too low — wear a headset or sit closer to the laptop mic.
-- Wrong channel — laptops with a 2-channel array but one broken element
-  produce noise on one side. Set `RECORD_MIC_CHANNEL=left` (or `right`) in
-  `.env`.
+- Wrong channel — if your mic is stereo and one channel is noisy or silent,
+  capturing from a single channel can help. Set `RECORD_MIC_CHANNEL=left`
+  (or `right`, or `mix`) in `.env`.
 - Wrong language — the streaming server auto-detects but you can force it via
   `STREAM_MODEL` if you know the model has a language variant.
 
