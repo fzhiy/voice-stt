@@ -4,6 +4,7 @@
 ; Shift+Alt+V       → 按住录音、松开停止（PTT，batch 模式）
 ; Shift+Alt+B       → 点按开始、再点按结束（toggle，不用一直按住）
 ; Shift+Alt+S       → 流式 PTT：按住边说边显示部分转写，松开出最终文本
+; Shift+Alt+E       → 切换 ASR Engine（火山豆包 ↔ Qwen3-ASR），下一次 PTT 生效
 ; Shift+Alt+P       → SAPI 朗读选中文本（本地 TTS，零延迟，P for Pronounce）
 ; Shift+Alt+Q       → 关闭 mic daemon（开会让出 mic 给 Zoom/Teams 用）
 ; Shift+Alt+W       → 重启 mic daemon（关 daemon 后用 mic app 完事，再按一下恢复）
@@ -61,6 +62,22 @@ voiceSttDir := EnvGet("LOCALAPPDATA") . "\voice-stt"
 if !DirExist(voiceSttDir)
     DirCreate(voiceSttDir)
 
+; ──── ASR backend selection (Shift+Alt+E to cycle) ────
+; Data-driven: add a new backend = one URL_MAP entry + one CYCLE entry.
+; Both backends speak the same WS protocol (int16 PCM frames + "EOF" → JSON).
+g_BackendFile   := voiceSttDir . "\backend.txt"
+g_BackendUrlMap := Map(
+    "volcano", "ws://127.0.0.1:18093/",   ; WSL2 local volcano-stream-server (云 Doubao ASR 2.0 proxy)
+    "qwen3",   "ws://127.0.0.1:18082/",   ; SSH tunnel → GPU host funasr-stream-server (Qwen3-ASR 1.7B)
+)
+g_BackendDisplay := Map(
+    "volcano", "火山豆包",
+    "qwen3",   "Qwen3-ASR",
+)
+g_BackendCycle := ["volcano", "qwen3"]    ; cycle order; append new backends to extend
+g_CurrentBackend := LoadBackend()
+UpdateBackendTrayTip()
+
 ; 启动时拉起 daemon；AHK 退出时 kill 之.
 ; 必须在第一个 hotkey 之前调用 (hotkey label 会结束 auto-execute 段).
 StartDaemon()
@@ -71,6 +88,7 @@ OnExit(OnAhkExit)
 +!v::DoVoicePTT()
 +!b::DoVoiceToggle()
 +!s::DoVoiceStream()
++!e::CycleBackend()
 +!p::DoSapiTTS()
 +!q::QuitDaemon()
 +!w::StartDaemon()
@@ -449,13 +467,58 @@ DoVoiceToggle()
         SafeFileDelete f
 }
 
+; === ASR backend cycle (Shift+Alt+E) ===
+; Persists current selection to backend.txt so it survives AHK restarts.
+LoadBackend()
+{
+    global g_BackendFile, g_BackendCycle
+    if FileExist(g_BackendFile) {
+        try {
+            saved := Trim(FileRead(g_BackendFile, "UTF-8"))
+            ; Strip UTF-8 BOM defensively (some writers add it; FileRead may not)
+            if SubStr(saved, 1, 1) = Chr(0xFEFF)
+                saved := SubStr(saved, 2)
+            for b in g_BackendCycle
+                if (b = saved)
+                    return saved
+        } catch {
+        }
+    }
+    return g_BackendCycle[1]   ; default to first entry (currently volcano)
+}
+
+UpdateBackendTrayTip()
+{
+    global g_CurrentBackend, g_BackendDisplay
+    A_IconTip := "voice-stt | ASR: " . g_BackendDisplay[g_CurrentBackend]
+}
+
+CycleBackend()
+{
+    global g_CurrentBackend, g_BackendCycle, g_BackendDisplay, g_BackendFile
+    idx := 0
+    Loop g_BackendCycle.Length {
+        if (g_BackendCycle[A_Index] = g_CurrentBackend) {
+            idx := A_Index
+            break
+        }
+    }
+    nextIdx := Mod(idx, g_BackendCycle.Length) + 1
+    g_CurrentBackend := g_BackendCycle[nextIdx]
+    if FileExist(g_BackendFile)
+        SafeFileDelete g_BackendFile
+    try FileAppend(g_CurrentBackend, g_BackendFile, "UTF-8-RAW")   ; no BOM
+    UpdateBackendTrayTip()
+    TrayTip "ASR 切到 " . g_BackendDisplay[g_CurrentBackend], "Shift+Alt+S 录音生效", 2
+}
+
 ; === 流式 PTT：按住边说边显示部分转写 ===
 ; PS 脚本把部分转写写到 STREAM_PARTIAL_FILE；renderer 进程每 100ms 轮询它。
 ; 旧的 ShowStreamGui / UpdateStreamGui / DestroyStreamGui 已被 StartRenderer /
 ; ClearPreviewWindow 替代。PTT 逻辑（KeyWait、信号文件、粘贴）保持不变。
 DoVoiceStream()
 {
-    global STREAM_PS_SCRIPT, STREAM_PARTIAL_FILE
+    global STREAM_PS_SCRIPT, STREAM_PARTIAL_FILE, g_CurrentBackend, g_BackendUrlMap
     dbg := EnvGet("LOCALAPPDATA") . "\voice-stt\stream-debug.log"
     target_hwnd := WinExist("A")   ; 热键按下时焦点窗口；粘贴时拉回去
     try {
@@ -475,11 +538,14 @@ DoVoiceStream()
 
         ; WS 流式版没有 -OutputPath（音频不写 WAV，直接流到 WS server）
         ; -PartialTextPath 指向 STREAM_PARTIAL_FILE（renderer 的固定轮询路径）
+        ; -WsUrl 由 Shift+Alt+E 切换的 g_CurrentBackend 决定，覆盖 PS1 默认值
+        backendUrl := g_BackendUrlMap[g_CurrentBackend]
         psCmd := 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass'
             . ' -File "' STREAM_PS_SCRIPT '"'
             . ' -StopSignalPath "' sig '"'
             . ' -OutputText "' out '"'
             . ' -PartialTextPath "' STREAM_PARTIAL_FILE '"'
+            . ' -WsUrl "' backendUrl '"'
         cmd := A_ComSpec ' /c ' psCmd ' 2> "' err '"'
         FileAppend Format("[{1}] cmd: {2}`n", FormatTime(, "HH:mm:ss"), cmd), dbg
 
