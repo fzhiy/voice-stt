@@ -197,7 +197,7 @@ Three independent causes, ordered by frequency:
 
 1. **You're outside mainland China.** Tencent treats cross-border traffic as
    a separate billing channel, and the 5h/月 free tier does **not** apply.
-   See [`docs/dev/changes/2026-05-19-asr-providers-m2-m4.md`](dev/changes/2026-05-19-asr-providers-m2-m4.md#tencent-asr-realtime)
+   See [PROVIDERS.md § Cross-Border Billing Caveats](PROVIDERS.md#cross-border-billing-caveats)
    for the full story. Practical fix for overseas users: keep
    `voice-stt-tencent.service` disabled and use Volcano (works cross-border)
    or your self-hosted FunASR/Qwen3-ASR.

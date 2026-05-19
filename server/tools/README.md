@@ -57,7 +57,7 @@ Calls Tencent's HTTP `SentenceRecognition` API (一句话识别) with a real
 (`tencent-stream-server.py`) returns `code=4004 '资源包耗尽'` but this script
 succeeds, the issue is **「实时语音识别」 sub-product specifically** isn't
 activated — not an account-wide billing problem. See
-[docs/TROUBLESHOOTING.md](../../docs/TROUBLESHOOTING.md#tencent-cloud-code4004).
+[docs/TROUBLESHOOTING.md § Cloud ASR providers](../../docs/TROUBLESHOOTING.md#cloud-asr-providers).
 
 ```bash
 python server/tools/tencent_sentence_probe.py

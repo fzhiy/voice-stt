@@ -116,9 +116,9 @@ in your client config.
 ### Self-hosted (Qwen3-ASR / FunASR / sherpa-onnx)
 
 These don't speak to cloud APIs; they run their own ASR models locally.
-See the main [README](../README.md#start-the-server) for setup. The
-client connects to whatever local or SSH-tunneled port the server listens
-on (`18082` is the canonical FunASR/Qwen3-ASR port).
+See **[server/README.md](../server/README.md)** for setup. The client
+connects to whatever local or SSH-tunneled port the server listens on
+(`18082` is the canonical FunASR/Qwen3-ASR port).
 
 ## Cross-Border Billing Caveats
 
