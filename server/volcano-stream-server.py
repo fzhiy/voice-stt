@@ -392,6 +392,7 @@ async def _proxy_one_session(client_ws, app_id: str, access_token: str, hotwords
 
         # ──── 2. client_to_upstream task ────
         async def pump_client_to_upstream():
+            audio_bytes = 0
             async for msg in client_ws:
                 if isinstance(msg, (bytes, bytearray)):
                     if not msg:
@@ -399,8 +400,24 @@ async def _proxy_one_session(client_ws, app_id: str, access_token: str, hotwords
                     seq = sequence[0]
                     sequence[0] = seq + 1
                     await upstream.send(build_audio_chunk(bytes(msg), seq, last=False))
+                    audio_bytes += len(msg)
                 elif isinstance(msg, str):
                     if msg.strip().upper() == "EOF":
+                        if audio_bytes == 0:
+                            # Test-Connection probe (or VAD false-start): client
+                            # sent EOF with no audio. Volcano won't emit a final
+                            # in this case and the session would hang, billing
+                            # against the free-tier quota. Short-circuit with an
+                            # empty final and drop the upstream WS.
+                            await client_ws.send(json.dumps({
+                                "type": "final",
+                                "text": "",
+                                "backend": BACKEND_TAG,
+                            }, ensure_ascii=False))
+                            await upstream.close()
+                            _log(f"  {peer} EOF (no audio) -> empty final")
+                            eof_received.set()
+                            return
                         seq = sequence[0]
                         sequence[0] = seq + 1
                         await upstream.send(build_audio_chunk(b"", seq, last=True))
@@ -409,6 +426,10 @@ async def _proxy_one_session(client_ws, app_id: str, access_token: str, hotwords
                     else:
                         _log(f"  {peer} unknown text frame: {msg[:40]!r}")
             # client closed without EOF: still tell Volcano we're done
+            if audio_bytes == 0:
+                await upstream.close()
+                eof_received.set()
+                return
             seq = sequence[0]
             await upstream.send(build_audio_chunk(b"", seq, last=True))
             eof_received.set()
