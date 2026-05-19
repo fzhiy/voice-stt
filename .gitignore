@@ -28,6 +28,10 @@ __pycache__/
 *.log
 .ps-stderr.log
 
+# Python virtualenvs (server-side cloud ASR providers run from a local venv)
+.venv/
+.venv-*/
+
 # Claude Code workspace — excluded from public repo
 .claude/
 
