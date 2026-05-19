@@ -9,7 +9,33 @@ Versioning follows [Semantic Versioning](https://semver.org/) (pre-1.0; breaking
 
 ## [Unreleased]
 
-_No changes since v0.1.0._
+### Added
+- **Cloud ASR providers** via pluggable `ASRProvider` ABC in `server/asr_common.py`:
+  - Volcano 火山豆包 ASR 2.0 — binary frame protocol, generous free tier (20 h / 6 mo + 注册送 40 h)
+  - Tencent Cloud Real-Time ASR — HMAC-SHA1 signed URL, 5 h / month free in mainland CN
+  - 讯飞 RTASR — HMAC-SHA1 signed URL, 50 h / 1 yr trial
+- **`Shift+Alt+E`** Windows hotkey — cycle ASR backend in-place without editing
+  config. Selection persisted to `%LOCALAPPDATA%\voice-stt\backend.txt`,
+  shown in AHK tray tooltip
+- `docs/PROVIDERS.md` — provider availability matrix, setup recipes,
+  cross-border billing caveats (e.g. Tencent 5 h / month does NOT cover
+  overseas traffic — overseas users should prefer Volcano)
+- `server/tools/` — diagnostic helpers:
+  - `provider_smoke.py` — generic E2E test for any voice-stt-protocol WS
+  - `tencent_get_appid.py` — resolve UIN/AppID confusion via `cam:GetUserAppId`
+  - `tencent_sentence_probe.py` — A/B probe (HTTP works ≠ WS works)
+
+### Changed
+- Paste flow no longer restores previous clipboard — transcribed text stays
+  in clipboard so the user can `Ctrl+V` manually if auto-paste lands in the
+  wrong window. Previous clipboard recoverable via `Win+V` system history
+- `volcano-stream-server.py` refactored onto `ASRProvider` ABC, ~200 LOC of
+  scaffolding moved to shared `asr_common.py`
+
+### Fixed
+- Volcano: EOF-with-no-audio now short-circuits to `{type:final,text:""}`
+  instead of hanging the upstream session. Saved free-tier session quota
+  during Test-Connection probes from the iPhone Happy fork client
 
 ---
 

@@ -6,13 +6,15 @@
 [![Version](https://img.shields.io/badge/version-v0.1.0-green.svg)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-blue.svg)](#install)
 
-> **Sub-second self-hosted voice-to-paste for Windows + WSL.** Push-to-talk
-> dictation with dual-pass ASR (FunASR Paraformer streaming + Qwen3-ASR-1.7B
-> final), live partial-transcript preview, zero cloud dependency by default,
-> runs on a 12 GB consumer GPU.
+> **Sub-second voice-to-paste for Windows + WSL.** Push-to-talk dictation
+> with a pluggable ASR backend — run it fully self-hosted (FunASR Paraformer
+> streaming + Qwen3-ASR-1.7B) on a 12 GB consumer GPU, or point it at a
+> cloud provider (火山豆包 / Tencent / 讯飞). Live partial-transcript
+> preview, zero cloud dependency by default.
 
 ```
 Shift+Alt+S  →  hold to dictate, release to paste  (streaming + live preview)
+Shift+Alt+E  →  cycle ASR backend (local Qwen3 / cloud providers)
 Shift+Alt+V  →  batch PTT (WAV → Whisper-compatible HTTP gateway)
 Shift+Alt+P  →  read selected text aloud (SAPI TTS, zero-latency)
 ```
@@ -23,13 +25,17 @@ Shift+Alt+P  →  read selected text aloud (SAPI TTS, zero-latency)
 
 - **Dual-pass ASR** — Paraformer streaming for `~300ms` partial captions while
   you're still speaking, Qwen3-ASR-1.7B final pass for `~1s` accurate paste-able text
+- **Pluggable backend** — one `ASRProvider` ABC, swap between self-hosted
+  (FunASR + Qwen3-ASR, sherpa-onnx CPU) and cloud (火山豆包 / Tencent / 讯飞)
+  with `Shift+Alt+E`; all speak the same WS protocol. See [docs/PROVIDERS.md](docs/PROVIDERS.md)
 - **Warm mic capture** with `~300ms` pre-roll ring buffer (no clipped first syllable)
 - **Left-channel-only recording** rescues headsets with one broken mic element
 - **Hotword auto-learning** — terms appearing ≥ 3× in 30 days get promoted into
   `hotwords.yaml` automatically; works with deterministic post-correct mappings
 - **Local recovery log** — every dictation event in monthly JSONL with a
-  `transcript-grep.sh` helper to recover paste-into-wrong-window mishaps
-- **Fully self-hosted** — default path has zero cloud dependency; audio never
+  `transcript-grep.sh` helper; transcribed text also stays on the clipboard for
+  manual re-paste if focus drifts mid-recording
+- **Self-hosted by default** — local path has zero cloud dependency; audio never
   leaves your network. Tailscale / LAN access only
 
 ---
@@ -164,12 +170,20 @@ See **[docs/CONFIG.md](docs/CONFIG.md)** for every variable, default, and
 
 ---
 
-## 🖥 Self-hosting the ASR server
+## 🖥 ASR backends
 
-See **[server/README.md](server/README.md)** for GPU server setup: vLLM
-loading Qwen3-ASR (0.6B default; 1.7B preset on ≥ 12 GB FP8-capable cards
-like RTX 4070 Ti) + FunASR Paraformer + optional Whisper batch path.
-Includes VRAM tuning matrix per consumer GPU and CUDA path troubleshooting.
+**Self-hosted (default).** See **[server/README.md](server/README.md)** for
+GPU server setup: vLLM loading Qwen3-ASR (0.6B default; 1.7B preset on ≥ 12 GB
+FP8-capable cards like RTX 4070 Ti) + FunASR Paraformer + optional Whisper
+batch path. A sherpa-onnx CPU path runs with zero GPU. Includes VRAM tuning
+matrix per consumer GPU and CUDA path troubleshooting.
+
+**Cloud.** See **[docs/PROVIDERS.md](docs/PROVIDERS.md)** for the provider
+matrix and per-provider setup recipes (Volcano 火山豆包, Tencent, 讯飞), plus
+cross-border billing caveats. Each provider is one standalone
+`*-stream-server.py` implementing the `ASRProvider` ABC in `server/asr_common.py`
+— adding your own is one file. Switch the active backend at runtime with
+`Shift+Alt+E` (selection persists across restarts).
 
 ---
 
@@ -220,27 +234,31 @@ scenario too, it should fit cleanly.
 
 ---
 
-## 🗺 Roadmap (v0.2)
+## 🗺 Roadmap
 
-Active design space, not yet implemented:
+**Shipped since v0.1** (now in the codebase): pluggable `ASRProvider` ABC;
+cloud providers Volcano 火山豆包 / Tencent / 讯飞; zero-GPU sherpa-onnx CPU
+path; `Shift+Alt+E` backend toggle.
 
-- **Cloud ASR backend** — make `ASR_BACKEND` switchable between `local`
-  (current vLLM stack) and `cloud`. Candidate providers, all of which support
-  streaming WS so the partial-preview UX is preserved:
-  - Aliyun DashScope `qwen3-asr-flash` (same Qwen3-ASR family, prompt-compatible)
-  - Deepgram Nova-3
-  - OpenAI gpt-4o-transcribe
-- **Zero-CUDA local fallback** — the transformers backend already runs without
-  vLLM (~20-50× slower, no FlashInfer compile). Will be promoted to a
-  first-class "easy install" mode for users who don't need < 1 s final
-  latency.
-- **Strict-correction LLM post-process** — separate from the legacy `polish`
-  endpoint (which rewrote semantics). Strict prompt + few-shot examples to
-  fix ASR homophone errors without changing meaning. Runs after final,
-  +0.3-0.8 s latency.
-- **Voice commands** (e.g., `undo` / `new paragraph`) — exploring this layer
-  but unclear if it's a better fit than ASR self-correction handled in the
-  model.
+**Next, not yet implemented** (inspired by [joewongjc/type4me](https://github.com/joewongjc/type4me)'s
+feature set):
+
+- **Vocab management skill** (`.claude/skills/vocab/SKILL.md`) — say
+  "Qwen3.5 was misheard as Queen 3.5" and an agent infers 3-8 phonetic
+  variants and writes them into `hotwords.yaml` `mappings:`, then deploys
+  via the existing `add-hotword.sh`. Wraps the manual YAML edit in natural
+  language.
+- **Per-mode hotkeys** — the gateway already implements polish / translate /
+  prompt-optimize / custom post-process modes server-side; expose them as
+  `Shift+Alt+1/2/3` instead of requiring a `.env` edit.
+- **History CSV export** — recovery JSONL exists; add an export path for
+  spreadsheet review.
+- **Prompt variables** — `{text}` / `{selected}` / `{clipboard}` substitution
+  in custom post-process modes (needs a Windows-side Ctrl+C selection snapshot).
+- **Strict-correction LLM post-process** — strict prompt + few-shot to fix
+  ASR homophones without rewriting meaning.
+- **Voice commands** (`undo` / `new paragraph`) — exploring vs. in-model
+  self-correction.
 - **Demo GIF / screencast** — long-pending.
 
 See [docs/ARCHITECTURE.md § What's NOT in v0.1](docs/ARCHITECTURE.md#whats-not-in-v01-and-v02-plans)

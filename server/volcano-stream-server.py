@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Volcano Engine (火山引擎 / 豆包流式语音识别 2.0) ASRProvider.
+"""Volcano Engine 豆包流式语音识别 2.0 ASRProvider.
 
-M2 refactor: scaffolding (voice-stt protocol, hotwords/mappings, EOF
-short-circuit) lives in asr_common. This file holds only the Volcano-
-specific bits: binary frame codec + WS handshake + VolcanoProvider.
+Provider-specific: binary frame codec + WS handshake. Shared voice-stt
+protocol handling (PCM ingest, EOF, hotwords/mappings) lives in asr_common.
 
 Credentials: ~/.config/voice-stt/secrets/volcano.env (mode 600):
     VOLCANO_APP_ID=...
@@ -11,13 +10,13 @@ Credentials: ~/.config/voice-stt/secrets/volcano.env (mode 600):
 
 Env vars (defaults shown):
     VOLCANO_SECRETS       ~/.config/voice-stt/secrets/volcano.env
-    VOLCANO_RESOURCE_ID   volc.seedasr.sauc.duration  (ASR 2.0 hour-based)
+    VOLCANO_RESOURCE_ID   volc.seedasr.sauc.duration
     VOLCANO_ENDPOINT      wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async
     HOTWORDS_FILE         ./hotwords.yaml
     LISTEN_HOST           0.0.0.0
     LISTEN_PORT           8082
 
-Reference: docs/dev/changes/2026-05-19-volcano-cloud-asr.md §5 (frame protocol)
+Frame protocol reference: https://www.volcengine.com/docs/6561/1354869
 """
 
 from __future__ import annotations

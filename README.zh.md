@@ -6,13 +6,14 @@
 [![Version](https://img.shields.io/badge/version-v0.1.0-green.svg)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-blue.svg)](#安装)
 
-> **Windows + WSL 的亚秒级自托管语音转写工具。** 按住热键说话, 实时显示
-> partial 字幕, 松开瞬间最终文本粘贴到当前输入框。双引擎 ASR (FunASR
-> Paraformer 流式 + Qwen3-ASR-1.7B final-pass), 默认零云依赖, 12 GB 消费级
-> GPU 即可跑起来。
+> **Windows + WSL 的亚秒级语音转写工具。** 按住热键说话, 实时显示 partial
+> 字幕, 松开瞬间最终文本粘贴到当前输入框。**可插拔 ASR 后端** —— 既能完全
+> 自托管 (FunASR Paraformer 流式 + Qwen3-ASR-1.7B, 12 GB 消费级 GPU), 也能
+> 指向云端 (火山豆包 / 腾讯云 / 讯飞)。默认零云依赖。
 
 ```
 Shift+Alt+S  →  按住说话, 松开粘贴  (流式 + 实时预览)
+Shift+Alt+E  →  切换 ASR 后端 (本地 Qwen3 / 云端 provider)
 Shift+Alt+V  →  批量 PTT (WAV 上传到 Whisper 兼容网关)
 Shift+Alt+P  →  朗读选中文本 (SAPI TTS, 零延迟)
 ```
@@ -26,12 +27,15 @@ Shift+Alt+P  →  朗读选中文本 (SAPI TTS, 零延迟)
 
 - **双引擎 ASR** — Paraformer 流式 `~300ms` 出 partial 实时字幕; Qwen3-ASR-1.7B
   在松开后 `~1s` 出最终高准确度文本
+- **可插拔后端** — 一个 `ASRProvider` 抽象基类, 自托管 (FunASR + Qwen3-ASR,
+  sherpa-onnx CPU) 和云端 (火山豆包 / 腾讯云 / 讯飞) 同协议, `Shift+Alt+E`
+  一键切换。详见 [docs/PROVIDERS.md](docs/PROVIDERS.md)
 - **暖捕获 mic** 含 `~300ms` 前置缓冲, 不吞首字
 - **左声道单独录** — 救戴坏的右声道单耳麦
 - **Hotwords 自动学习** — `≥ 3 次/30 天` 的纠正自动写进 `hotwords.yaml`
-- **本地恢复日志** — 每次听写写一行 JSONL, `transcript-grep.sh` 帮你找回
-  贴错窗口的内容
-- **完全自托管** — 默认零云依赖, 音频不离开你的网络
+- **本地恢复日志** — 每次听写写一行 JSONL, `transcript-grep.sh` 帮你找回; 转写
+  文本同时留在剪贴板, 焦点漂走也能手动 Ctrl+V 重贴
+- **默认自托管** — 本地路径零云依赖, 音频不离开你的网络
 
 ---
 
@@ -134,30 +138,41 @@ WSL 助手脚本 (在 `wsl/`):
 
 ---
 
-## 🖥 自托管 ASR server
+## 🖥 ASR 后端
 
-完整 GPU server 部署见 **[server/README.md](server/README.md)**: vLLM 加载
-Qwen3-ASR (默认 0.6B, ≥ 12 GB FP8 卡如 RTX 4070 Ti 可上 1.7B preset) +
-FunASR Paraformer + 可选 Whisper 批量路径。包含各级消费卡 (RTX 4060/4070/
-4090) 的 VRAM 调参矩阵 + CUDA 路径排障。
+**自托管(默认)。** 完整 GPU server 部署见
+**[server/README.md](server/README.md)**: vLLM 加载 Qwen3-ASR (默认 0.6B,
+≥ 12 GB FP8 卡如 RTX 4070 Ti 可上 1.7B preset) + FunASR Paraformer + 可选
+Whisper 批量路径; 另有零 GPU 的 sherpa-onnx CPU 路径。含各级消费卡 VRAM
+调参矩阵 + CUDA 路径排障。
+
+**云端。** provider 矩阵 + 各家配置见 **[docs/PROVIDERS.md](docs/PROVIDERS.md)**
+(火山豆包 / 腾讯云 / 讯飞), 含跨境计费坑提醒。每个 provider 是一个独立的
+`*-stream-server.py`, 实现 `server/asr_common.py` 的 `ASRProvider` 抽象基类
+—— 自己加一家就一个文件。`Shift+Alt+E` 运行时切换 (选择跨重启保留)。
 
 ---
 
-## 🗺 Roadmap (v0.2)
+## 🗺 Roadmap
 
-设计中、未实现:
+**v0.1 之后已实现**(已进代码库): 可插拔 `ASRProvider` 抽象基类; 云端
+provider 火山豆包 / 腾讯云 / 讯飞; 零 GPU 的 sherpa-onnx CPU 路径;
+`Shift+Alt+E` 后端切换。
 
-- **云 ASR backend** — 让 `ASR_BACKEND` 在 `local` / `cloud` 间切换, 给没 GPU
-  的用户。候选 (都支持流式 WS 保留实时预览体验):
-  - 阿里 DashScope `qwen3-asr-flash` (跟本地 Qwen3-ASR 同体系, prompt 兼容)
-  - Deepgram Nova-3 / OpenAI gpt-4o-transcribe
-- **零 CUDA 本地 fallback** — transformers 后端已是兜底 (慢 20-50×), 计划提到
-  一线"易装"模式, 给不要求 < 1s final 的用户
-- **严约束 LLM 后处理** — 跟历史 `polish` 端点 (会改语义) 不同, 严提示词
-  + few-shot 例子, 只修 ASR 同音字, 不改语义
-- **语音命令** (撤销 / 换段) — 探索中, 但跟 ASR self-correction 哪个更适合
-  还在权衡
-- **Demo GIF / 录屏** — 长期待办
+**下一步、未实现**(参考 [joewongjc/type4me](https://github.com/joewongjc/type4me)
+的功能集):
+
+- **词汇管理 skill**(`.claude/skills/vocab/SKILL.md`)—— 你说「Qwen3.5 被
+  识别成 Queen 3.5」, agent 自动推 3-8 个谐音变体写进 `hotwords.yaml`
+  `mappings:` 段, 再用现有 `add-hotword.sh` 部署。把手写 YAML 包成自然语言。
+- **分模式热键** —— 网关已经实现 polish / translate / prompt-optimize /
+  custom 后处理模式, 计划用 `Shift+Alt+1/2/3` 暴露, 免去改 `.env`。
+- **历史 CSV 导出** —— 恢复日志已是 JSONL, 补一个导出便于表格审阅。
+- **Prompt 变量** —— custom 模式里支持 `{text}` / `{selected}` / `{clipboard}`
+  替换(需 Windows 侧 Ctrl+C 抓选区)。
+- **严约束 LLM 后处理** —— 严提示词 + few-shot, 只修 ASR 同音字不改语义。
+- **语音命令**(撤销 / 换段)—— 探索中, 跟模型内 self-correction 权衡。
+- **Demo GIF / 录屏** —— 长期待办。
 
 完整讨论见 [docs/ARCHITECTURE.md § What's NOT in v0.1](docs/ARCHITECTURE.md#whats-not-in-v01-and-v02-plans)。
 
