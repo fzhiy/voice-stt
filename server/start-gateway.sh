@@ -27,24 +27,44 @@ export WHISPER_LANG="${WHISPER_LANG:-zh}"
 PID_FILE="$SCRIPT_DIR/gateway.pid"
 LOG_FILE="$SCRIPT_DIR/gateway.log"
 
+# fastapi / uvicorn 装在 streamenv venv 里, 不在系统 python3 里. 用 venv 的 python.
+# 用户可通过 PYTHON= 覆盖; venv 不存在则 fallback 到系统 python3 (开发机/最小镜像).
+VENV_PY="${PYTHON:-$SCRIPT_DIR/streamenv/bin/python3}"
+if [[ ! -x "$VENV_PY" ]]; then
+    VENV_PY="python3"
+fi
+
 case "${1:-}" in
     --stop)
+        killed=0
         if [[ -f "$PID_FILE" ]]; then
             pid=$(cat "$PID_FILE")
-            if kill "$pid" 2>/dev/null; then
+            if kill -0 "$pid" 2>/dev/null && kill "$pid" 2>/dev/null; then
                 echo "✓ 已停止 mini-gateway (pid=$pid)"
+                killed=1
             fi
             rm -f "$PID_FILE"
-        else
-            # 兜底：grep python 进程
-            pkill -f "python3 .*mini-gateway.py" 2>/dev/null && echo "✓ kill python mini-gateway" || echo "未运行"
+        fi
+        # 兜底: 即便有 PID 文件也再扫一遍 — pid 可能漂移过, 或别处启动的实例没写 PID
+        # 文件. 用 mini-gateway.py 当锚 (regex), 转义那个点避免误匹配同前缀的别名.
+        pids=$(pgrep -f "mini-gateway\.py" 2>/dev/null || true)
+        if [[ -n "$pids" ]]; then
+            for p in $pids; do
+                if kill "$p" 2>/dev/null; then
+                    echo "✓ 兜底 kill pid=$p"
+                    killed=1
+                fi
+            done
+        fi
+        if (( killed == 0 )); then
+            echo "未运行"
         fi
         exit 0
         ;;
     --status)
         if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
             echo "✓ mini-gateway 运行中 (pid=$(cat "$PID_FILE"))"
-            curl -fs --max-time 3 "http://127.0.0.1:$GATEWAY_PORT/health" | python3 -m json.tool 2>/dev/null \
+            curl -fs --max-time 3 "http://127.0.0.1:$GATEWAY_PORT/health" | "$VENV_PY" -m json.tool 2>/dev/null \
                 || echo "  HTTP 不可达"
         else
             echo "✗ 未运行"
@@ -59,8 +79,8 @@ if ss -ltn 2>/dev/null | grep -q ":$GATEWAY_PORT "; then
 fi
 
 if [[ "${1:-}" == "--daemon" ]]; then
-    echo "→ 后台启动: python3 mini-gateway.py (port $GATEWAY_PORT)"
-    nohup python3 mini-gateway.py >"$LOG_FILE" 2>&1 &
+    echo "→ 后台启动: $VENV_PY mini-gateway.py (port $GATEWAY_PORT)"
+    nohup "$VENV_PY" mini-gateway.py >>"$LOG_FILE" 2>&1 &
     pid=$!
     echo "$pid" > "$PID_FILE"
     sleep 1
@@ -68,9 +88,9 @@ if [[ "${1:-}" == "--daemon" ]]; then
         echo "✓ pid=$pid，日志 $LOG_FILE"
     else
         echo "❌ 启动失败" >&2
-        cat "$LOG_FILE"
+        tail -20 "$LOG_FILE"
         exit 1
     fi
 else
-    exec python3 mini-gateway.py
+    exec "$VENV_PY" mini-gateway.py
 fi

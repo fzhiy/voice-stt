@@ -19,6 +19,12 @@ QWEN3_BACKEND = os.environ.get("QWEN3_BACKEND", "vllm").lower()
 QWEN3_VLLM_GPU_FRAC = float(os.environ.get("QWEN3_VLLM_GPU_FRAC", "0.5"))
 QWEN3_VLLM_MAX_MODEL_LEN = int(os.environ.get("QWEN3_VLLM_MAX_MODEL_LEN", "4096"))
 QWEN3_VLLM_BATCH = int(os.environ.get("QWEN3_VLLM_BATCH", "4"))
+# Optional vLLM quantization. fp8 = on-the-fly W8A16 dynamic quant for Ada/Hopper GPUs,
+# halves weight footprint (~3.9GB → ~2GB for 1.7B). Empty = bf16 (no quant).
+QWEN3_VLLM_QUANTIZATION = os.environ.get("QWEN3_VLLM_QUANTIZATION", "").strip() or None
+# Optional CPU offload (in GB). Trades latency for GPU memory by keeping N GB of
+# weights on CPU and swapping to GPU on demand. Use only if quantization can't be applied.
+QWEN3_VLLM_CPU_OFFLOAD_GB = float(os.environ.get("QWEN3_VLLM_CPU_OFFLOAD_GB", "0") or "0")
 
 
 def _log(*a):
@@ -73,8 +79,7 @@ class Qwen3ASRBackend(FinalPassBackend):
         from qwen_asr import Qwen3ASRModel
         # JIT 内核首次会在 ~/.cache/flashinfer/ 编译, 需要 PATH 含 nvcc 12+ (compute_89 支持).
         # enforce_eager=True 关 CUDA graph 省 1-2GB 显存 (4070Ti 12GB 跟 Paraformer / Punc 共享).
-        return Qwen3ASRModel.LLM(
-            QWEN3_ASR_PATH,
+        kwargs = dict(
             gpu_memory_utilization=QWEN3_VLLM_GPU_FRAC,
             max_model_len=QWEN3_VLLM_MAX_MODEL_LEN,
             enforce_eager=True,
@@ -82,6 +87,13 @@ class Qwen3ASRBackend(FinalPassBackend):
             max_new_tokens=512,
             dtype="bfloat16",
         )
+        if QWEN3_VLLM_QUANTIZATION:
+            kwargs["quantization"] = QWEN3_VLLM_QUANTIZATION
+            _log(f"  enabling vLLM quantization={QWEN3_VLLM_QUANTIZATION}")
+        if QWEN3_VLLM_CPU_OFFLOAD_GB > 0:
+            kwargs["cpu_offload_gb"] = QWEN3_VLLM_CPU_OFFLOAD_GB
+            _log(f"  enabling vLLM cpu_offload_gb={QWEN3_VLLM_CPU_OFFLOAD_GB}")
+        return Qwen3ASRModel.LLM(QWEN3_ASR_PATH, **kwargs)
 
     def _load_transformers(self):
         import torch
@@ -140,18 +152,28 @@ class Qwen3ASRBackend(FinalPassBackend):
             if not results:
                 return ("", "")
             raw = (results[0].text or "").strip()
-            text = text_postprocess.qwen3_post_correct(raw)
+            # Context-echo guard: 短/弱音频 (尤其 PTT 启动 pre-roll 段) 偶尔触发 hallucination,
+            # 模型放弃听音频, 直接回 context (system prompt) 里的 hotwords 列表片段当 transcription.
+            # 实测 4 例: rms_p50 0.03~0.10, 时长 0.5~1.5s, 输出逐字逐句对应
+            # hotwords.yaml 的 user_added 段 ('API, pane, fork, repo, Deck, TMUX, ...').
+            # 判定: raw 前 30 字符整段在 _context 里出现 → 几乎一定是 echo (真转写不可能含 prompt 字面值).
+            # < 20 字短输出放行避免误杀单词级 PTT (如 '对', 'OK', 单个 hotword).
+            if raw and len(raw) >= 20 and self._context and raw[:30] in self._context:
+                _log(f"  {log_tag} DROP context-echo: raw='{raw[:60]}...'")
+                return ("", "")
+            # post-correct (qwen3_post_correct) was moved to the server-side
+            # wrapper transcribe_final_async() so every final-pass backend
+            # (including future cloud-volcano / local-onnx) shares the same
+            # deterministic homophone-fix layer. Backend returns raw output;
+            # server wraps post-correct around it uniformly.
             lang = results[0].language or ""
             if arr.size != orig_size:
                 dur_info = f"{orig_size/sample_rate:.1f}s->{arr.size/sample_rate:.1f}s"
             else:
                 dur_info = f"{arr.size/sample_rate:.1f}s"
             rms_info = f" rms_p50={rms_stats[1]:.4f}" if rms_stats else ""
-            if text != raw:
-                _log(f"  {log_tag} {time.time()-t:.2f}s ({dur_info}){rms_info} lang={lang} -> '{text[:50]}' (post-correct fixed from '{raw[:50]}')")
-            else:
-                _log(f"  {log_tag} {time.time()-t:.2f}s ({dur_info}){rms_info} lang={lang} -> '{text[:50]}'")
-            return (text, lang)
+            _log(f"  {log_tag} {time.time()-t:.2f}s ({dur_info}){rms_info} lang={lang} -> '{raw[:50]}'")
+            return (raw, lang)
         except Exception as e:
             _log(f"  {log_tag} failed: {e} (fallback)")
             return ("", "")

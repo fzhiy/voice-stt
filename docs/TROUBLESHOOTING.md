@@ -69,9 +69,9 @@ Common patterns:
 ### Caption shows but transcript is wrong / garbled
 
 - Mic level too low — wear a headset or sit closer to the laptop mic.
-- Wrong channel — laptops with a 2-channel array but one broken element
-  produce noise on one side. Set `RECORD_MIC_CHANNEL=left` (or `right`) in
-  `.env`.
+- Wrong channel — if your mic is stereo and one channel is noisy or silent,
+  capturing from a single channel can help. Set `RECORD_MIC_CHANNEL=left`
+  (or `right`, or `mix`) in `.env`.
 - Wrong language — the streaming server auto-detects but you can force it via
   `STREAM_MODEL` if you know the model has a language variant.
 
@@ -186,6 +186,54 @@ Two options:
   is steady-state once warmed.
 - Check `nvidia-smi` while dictating — if utilization is at 100% with
   another workload, contention is the issue.
+
+---
+
+## Cloud ASR providers
+
+### Tencent Cloud: `code=4004 '资源包耗尽，请开通后付费或者购买资源包'`
+
+Three independent causes, ordered by frequency:
+
+1. **You're outside mainland China.** Tencent treats cross-border traffic as
+   a separate billing channel, and the 5h/月 free tier does **not** apply.
+   See [PROVIDERS.md § Cross-Border Billing Caveats](PROVIDERS.md#cross-border-billing-caveats)
+   for the full story. Practical fix for overseas users: keep
+   `voice-stt-tencent.service` disabled and use Volcano (works cross-border)
+   or your self-hosted FunASR/Qwen3-ASR.
+
+2. **CAM sub-user is missing `QcloudFinanceFullAccess`.** With only
+   `QcloudASRFullAccess`, the WS endpoint can call the API but cannot read
+   billing channels to consume the free tier. Add the finance policy in
+   CAM console.
+
+3. **「实时语音识别」 sub-product wasn't activated.** Tencent ASR is
+   actually 4 independent products. The "ASR" toggle in console may only
+   activate 一句话识别 (HTTP); the WS streaming endpoint
+   (实时语音识别) needs separate activation. Diagnostic: if
+   `SentenceRecognition` HTTP API works but WS returns 4004, this is your
+   issue. Open https://console.cloud.tencent.com/asr/ and look for the
+   "实时语音识别" tab specifically.
+
+### Tencent / Volcano: `code=4002 '鉴权失败'`
+
+Almost always: the AppID in the WS URL path doesn't match the account that
+owns the SecretId/SecretKey (Tencent) or App Key (Volcano). The two-digit
+prefix is the giveaway:
+
+- **AppID** (Tencent): ~10 digits, typically starts with `1250` / `1251` /
+  `1253` / `1300` / `1301`
+- **UIN / 账号 ID** (Tencent): also ~10-12 digits, typically starts with
+  `100`
+
+These are **different numbers** — UIN is the user's identity, AppID is the
+resource namespace. They share the same digit length but mean different
+things. To programmatically discover AppID from a SecretId/Key pair:
+
+```bash
+# Calls cam:GetUserAppId. Returns: {"Uin": ..., "OwnerUin": ..., "AppId": ...}
+python server/tools/tencent_get_appid.py
+```
 
 ---
 

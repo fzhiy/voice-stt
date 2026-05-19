@@ -53,6 +53,7 @@ RENDERER_AHK_SCRIPT  := A_ScriptDir . "\voice-preview-renderer-fallback.ahk"
 AHK64_EXE_PATH       := EnvGet("LOCALAPPDATA") . "\Programs\AutoHotkey\v2\AutoHotkey64.exe"
 g_RendererPid        := 0   ; renderer process pid; 0 = not yet started / died
 
+
 g_DaemonPid := 0   ; mic daemon PS 进程 pid; 0 表示未启动 / 已被 quit
 
 ; Ensure the voice-stt data directory exists (logs, partial preview file).
@@ -171,6 +172,66 @@ SafeFileDelete(path)
         }
     }
 }
+
+; JSON 转义最小集. 用于本地转写恢复日志(纯结构化输出, 不消费外部输入).
+JsonEscape(s)
+{
+    s := StrReplace(s, "\", "\\")
+    s := StrReplace(s, '"', '\"')
+    s := StrReplace(s, "`r", "\r")
+    s := StrReplace(s, "`n", "\n")
+    s := StrReplace(s, "`t", "\t")
+    return s
+}
+
+; 把 Map 拍成 JSON 单行. 保留 Map 插入顺序; 数字类型不加引号.
+JsonStringify(m)
+{
+    parts := ""
+    first := true
+    for k, v in m {
+        if !first
+            parts .= ","
+        first := false
+        parts .= '"' k '":'
+        t := Type(v)
+        if (t = "Integer" || t = "Float") {
+            parts .= v
+        } else {
+            parts .= '"' JsonEscape(v) '"'
+        }
+    }
+    return "{" parts "}"
+}
+
+; 转写恢复日志: 每次 PTT 完成(成功 / 空 / 失败)都追加一行 JSONL 到
+; %LOCALAPPDATA%\voice-stt\transcripts\YYYY-MM.jsonl. 月轮换. 纯本地, 不上传.
+; 兜底场景: paste 投错窗口 / paste 失败时, 文本不丢, 可从这里 grep 回来.
+WriteRecoveryRecord(text, started_tick, target_hwnd, release_hwnd, used_hwnd, paste_status)
+{
+    try {
+        dir := EnvGet("LOCALAPPDATA") . "\voice-stt\transcripts"
+        if !DirExist(dir)
+            DirCreate(dir)
+        path := dir . "\" . FormatTime(, "yyyy-MM") . ".jsonl"
+        duration_sec := Round((A_TickCount - started_tick) / 1000, 2)
+        rec := Map()
+        rec["ts"] := FormatTime(, "yyyy-MM-ddTHH:mm:ss")
+        rec["duration_sec"] := duration_sec
+        rec["target_hwnd_press"] := target_hwnd
+        rec["target_hwnd_release"] := release_hwnd
+        rec["target_hwnd_used"] := used_hwnd
+        rec["target_title_press"] := GetWindowTitle(target_hwnd)
+        rec["target_title_release"] := GetWindowTitle(release_hwnd)
+        rec["target_title_used"] := used_hwnd ? GetWindowTitle(used_hwnd) : ""
+        rec["paste_status"] := paste_status
+        rec["text"] := text
+        FileAppend(JsonStringify(rec) . "`n", path, "UTF-8-RAW")
+    } catch {
+        ; 恢复日志写失败绝对不能影响主流程
+    }
+}
+
 
 ; 等转写完成：以"OutputText 文件出现"或"PS 进程死亡"为终止信号
 ; 跟录音/转写时长解耦；只在 PS 真挂（罕见）时靠 10 分钟硬上限兜底
@@ -452,6 +513,7 @@ DoVoiceStream()
         if !FileExist(out) {
             errText := FileExist(err) ? FileRead(err, "UTF-8") : "(无 stderr)"
             FileAppend Format("[{1}] FAILED: no out file. err='{2}'`n", FormatTime(, "HH:mm:ss"), SubStr(errText,1,200)), dbg
+            WriteRecoveryRecord("", tick, target_hwnd, release_hwnd, 0, "no_out")
             TrayTip "Stream 失败", SubStr(errText, 1, 300), 5
             if FileExist(err)
                 Run "notepad.exe " err
@@ -462,14 +524,18 @@ DoVoiceStream()
         FileAppend Format("[{1}] read out: '{2}' ({3} chars)`n", FormatTime(, "HH:mm:ss"), SubStr(text,1,80), StrLen(text)), dbg
 
         if text = "" {
+            WriteRecoveryRecord("", tick, target_hwnd, release_hwnd, 0, "empty")
             for f in [out, sig, err]
                 SafeFileDelete f
             TrayTip "转写为空", "无声音或太短", 3
             return
         }
 
-        ; 先粘贴，再清理。清理放后面 + SafeFileDelete 保证文件锁不会顶掉 paste。
+        ; 直接 paste, 不弹确认窗 (用户明确要求: "录完直接粘, 别问").
+        ; release_hwnd 为主目标 (松开瞬间焦点 = 用户语义意图), target_hwnd 兜底.
+        ; 万一贴错窗口, 文本仍在 recovery log 里可 grep 回来.
         used_hwnd := PasteAndRestoreClipboard(text, release_hwnd, target_hwnd)
+        WriteRecoveryRecord(text, tick, target_hwnd, release_hwnd, used_hwnd, "ok")
         TrayTip "已粘贴 → " GetWindowTitle(used_hwnd), text, 1
         FileAppend Format("[{1}] === pasted: press={2} release={3} used={4} title='{5}' ===`n`n", FormatTime(, "HH:mm:ss"), target_hwnd, release_hwnd, used_hwnd, GetWindowTitle(used_hwnd)), dbg
         for f in [out, sig, err]
