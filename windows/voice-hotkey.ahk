@@ -132,7 +132,7 @@ IsSpuriousWindow(hwnd)
 ;      这样用户松开后可以立刻去做别的事（点别的窗口），paste 也不追鼠标。
 ;   2. press_hwnd：热键按下瞬间的焦点。release_hwnd 失效或 spurious 时兜底。
 ;   3. 当前焦点：press/release 都失效时的最后兜底（带 spurious 过滤）。
-PasteAndRestoreClipboard(text, release_hwnd := 0, press_hwnd := 0)
+PasteText(text, release_hwnd := 0, press_hwnd := 0)
 {
     target_hwnd := 0
     if release_hwnd && WinExist("ahk_id " release_hwnd) && !IsSpuriousWindow(release_hwnd)
@@ -153,14 +153,15 @@ PasteAndRestoreClipboard(text, release_hwnd := 0, press_hwnd := 0)
             ; 目标窗口可能已被用户主动关闭，让 Send "^v" 落到当前活动窗口
         }
     }
-    saved := ClipboardAll()
     A_Clipboard := text
     ClipWait 1   ; 等剪贴板真的更新（最多 1s），比固定 Sleep 80 稳
     Send "^v"
     ; Windows Terminal / WSL / Claude Code 处理 paste 的速度不稳；
     ; 中文是多字节，IME 介入时更慢。给 600ms 比之前 250ms 更安全。
     Sleep 600
-    A_Clipboard := saved
+    ; 不复原原剪贴板：保留转写文本在剪贴板里，用户可以反复 Ctrl+V 重试
+    ; （焦点漂走 / 粘贴落到错误窗口时的兜底）。原剪贴板内容可从 Win+V
+    ; 系统剪贴板历史恢复。
     return target_hwnd   ; 让调用方用真实 paste 目标做 TrayTip 标题
 }
 
@@ -391,7 +392,7 @@ DoVoiceInput(duration)
     if FileExist(WIN_ERR_FILE)
         FileDelete WIN_ERR_FILE
 
-    used_hwnd := PasteAndRestoreClipboard(text, release_hwnd, target_hwnd)
+    used_hwnd := PasteText(text, release_hwnd, target_hwnd)
     TrayTip "已粘贴 → " GetWindowTitle(used_hwnd), text, 1
 }
 
@@ -461,7 +462,7 @@ DoVoiceToggle()
         return
     }
 
-    used_hwnd := PasteAndRestoreClipboard(text, release_hwnd, g_ToggleHwnd)
+    used_hwnd := PasteText(text, release_hwnd, g_ToggleHwnd)
     TrayTip "已粘贴 → " GetWindowTitle(used_hwnd), text, 1
     for f in [g_ToggleOut, g_ToggleSig, g_ToggleErr]
         SafeFileDelete f
@@ -600,7 +601,7 @@ DoVoiceStream()
         ; 直接 paste, 不弹确认窗 (用户明确要求: "录完直接粘, 别问").
         ; release_hwnd 为主目标 (松开瞬间焦点 = 用户语义意图), target_hwnd 兜底.
         ; 万一贴错窗口, 文本仍在 recovery log 里可 grep 回来.
-        used_hwnd := PasteAndRestoreClipboard(text, release_hwnd, target_hwnd)
+        used_hwnd := PasteText(text, release_hwnd, target_hwnd)
         WriteRecoveryRecord(text, tick, target_hwnd, release_hwnd, used_hwnd, "ok")
         TrayTip "已粘贴 → " GetWindowTitle(used_hwnd), text, 1
         FileAppend Format("[{1}] === pasted: press={2} release={3} used={4} title='{5}' ===`n`n", FormatTime(, "HH:mm:ss"), target_hwnd, release_hwnd, used_hwnd, GetWindowTitle(used_hwnd)), dbg
@@ -733,7 +734,7 @@ DoVoicePTT()
         return
     }
 
-    used_hwnd := PasteAndRestoreClipboard(text, release_hwnd, target_hwnd)
+    used_hwnd := PasteText(text, release_hwnd, target_hwnd)
     TrayTip "已粘贴 → " GetWindowTitle(used_hwnd), text, 1
     for f in [out, sig, err]
         SafeFileDelete f
