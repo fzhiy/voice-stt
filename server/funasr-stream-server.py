@@ -104,24 +104,36 @@ def load_hotwords(path: str) -> str:
 
 
 def load_qwen3_context(path: str) -> str:
-    """构造给 Qwen3-ASR transcribe(context=...) 的 system prompt，让模型偏向我们的术语。
-    Qwen3-ASR 把 context 放进对话的 system message，对识别会产生 bias 效果，
-    类似 Whisper 的 initial_prompt 但是更深入推理路径。"""
+    """构造给 Qwen3-ASR transcribe(context=...) 的 system prompt.
+
+    设计依据 QwenLM/Qwen3-ASR 官方 examples + Toolkit README:
+        context="Qwen-ASR, DashScope, FFmpeg"   # 裸 term list
+        context=["", "交易 停滞", ""]            # per-sample phrase
+    官方明确说 context 效果 "subtle - probability nudging, not enforcement",
+    所以不塞 persona / language / 复杂 instruction (语言走 language="Chinese"
+    参数, 见 backends/qwen3_asr.py:150). 跟之前的多段式 prompt 相比:
+      - 删除角色 preamble ("你正在转写...") — 官方 example 从无
+      - 删除 category labels ("- ai agent:") — 官方 flatten 全部 terms
+      - 删除语言指令 ("输出使用简体中文") — 跟 language 参数重复
+      - 保留 "英文原样大小写" — voice-stt 独有但解决真实痛点
+    """
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-        sections = []
-        for cat, items in data.items():
-            if isinstance(items, list) and items:
-                pretty = cat.replace("_", " ")
-                sections.append(f"- {pretty}: " + ", ".join(items))
-        body = "\n".join(sections)
-        return (
-            "你正在转写一位 AI agent 研究 / 软件开发者的语音输入。"
-            "可能出现以下专有名词、产品名、技术术语，识别时优先这些写法:\n\n"
-            + body
-            + "\n\n输出使用简体中文。混入的英文专有名词保持原样大小写不要翻译。"
-        )
+        seen = set()
+        terms = []
+        for _cat, items in data.items():
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                t = str(item).strip()
+                if t and t not in seen:
+                    seen.add(t)
+                    terms.append(t)
+        if not terms:
+            return ""
+        glossary = ", ".join(terms)
+        return glossary + "\n\n英文专有名词保持原样大小写。"
     except Exception as e:
         log(f"failed to build qwen3 context from {path}: {e} (fallback empty)")
         return ""
