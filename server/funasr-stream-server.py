@@ -418,14 +418,28 @@ paraformer_inference_lock = asyncio.Lock()
 
 async def transcribe_final_async(pcm_bytes: bytes, sample_rate: int = 16000,
                                  log_tag: str = "final") -> tuple:
-    """Async wrapper around final_backend.transcribe(). lock 序列化推理，executor 跑同步推理。"""
+    """Async wrapper around final_backend.transcribe().
+
+    - lock 序列化推理 (executor 跑 sync 推理, 防多 partial 并发 OOM).
+    - 包裹 post-correct: backend 返回 raw text, server 统一 deterministic
+      homophone fix (Queen3 -> Qwen3 等). 这样所有 final-pass backend
+      (qwen3_asr / future cloud-volcano / local-onnx) 共享同一套规则,
+      避免 Qwen3ASRBackend 一处修对、其他 backend 漏过的 coupling.
+    - post-correct 在 lock 外做 (纯字符串操作, 不抢 GPU).
+    """
     if final_backend is None or not final_backend.is_loaded:
         return ("", "")
     loop = asyncio.get_event_loop()
     async with qwen3_inference_lock:
-        return await loop.run_in_executor(
+        raw, lang = await loop.run_in_executor(
             None, final_backend.transcribe, pcm_bytes, sample_rate, log_tag
         )
+    if not raw:
+        return (raw, lang)
+    text = text_postprocess.qwen3_post_correct(raw)
+    if text != raw:
+        log(f"  {log_tag} post-correct: '{raw[:50]}...' -> '{text[:50]}...'")
+    return (text, lang)
 
 # 独立标点模型：在 paraformer 出最终 raw 文本后跑一遍，加 。，？！
 # 比 LLM polish 快 50x（CPU 上 50ms vs GPU 上 LLM 2s），且保证一定有标点

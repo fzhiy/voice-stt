@@ -161,18 +161,19 @@ class Qwen3ASRBackend(FinalPassBackend):
             if raw and len(raw) >= 20 and self._context and raw[:30] in self._context:
                 _log(f"  {log_tag} DROP context-echo: raw='{raw[:60]}...'")
                 return ("", "")
-            text = text_postprocess.qwen3_post_correct(raw)
+            # post-correct (qwen3_post_correct) was moved to the server-side
+            # wrapper transcribe_final_async() so every final-pass backend
+            # (including future cloud-volcano / local-onnx) shares the same
+            # deterministic homophone-fix layer. Backend returns raw output;
+            # server wraps post-correct around it uniformly.
             lang = results[0].language or ""
             if arr.size != orig_size:
                 dur_info = f"{orig_size/sample_rate:.1f}s->{arr.size/sample_rate:.1f}s"
             else:
                 dur_info = f"{arr.size/sample_rate:.1f}s"
             rms_info = f" rms_p50={rms_stats[1]:.4f}" if rms_stats else ""
-            if text != raw:
-                _log(f"  {log_tag} {time.time()-t:.2f}s ({dur_info}){rms_info} lang={lang} -> '{text[:50]}' (post-correct fixed from '{raw[:50]}')")
-            else:
-                _log(f"  {log_tag} {time.time()-t:.2f}s ({dur_info}){rms_info} lang={lang} -> '{text[:50]}'")
-            return (text, lang)
+            _log(f"  {log_tag} {time.time()-t:.2f}s ({dur_info}){rms_info} lang={lang} -> '{raw[:50]}'")
+            return (raw, lang)
         except Exception as e:
             _log(f"  {log_tag} failed: {e} (fallback)")
             return ("", "")
