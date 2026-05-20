@@ -42,6 +42,25 @@ def log(*args):
     print(f"[{time.strftime('%H:%M:%S')}]", *args, flush=True)
 
 
+def format_session_metric(
+    backend: str,
+    audio_bytes: int,
+    partial_count: int,
+    final_latency_ms: float | None,
+    error_code: object,
+) -> str:
+    """One-line per-session observability summary (Tier 1 T1.3).
+
+    final_latency_ms = time from EOF-with-audio to the final event being sent;
+    None when no final was produced (connect failure or no-audio probe).
+    """
+    lat = f"{final_latency_ms:.0f}ms" if final_latency_ms is not None else "n/a"
+    return (
+        f"[session] backend={backend} audio_bytes={audio_bytes} "
+        f"partials={partial_count} final_latency={lat} result={error_code or 'ok'}"
+    )
+
+
 # ────────────────────── credentials ──────────────────────
 def parse_env_file(path: Path, required_keys: list[str]) -> dict[str, str]:
     """Parse KEY=VALUE lines from a mode-600 secrets file.
@@ -207,11 +226,19 @@ async def _handle_one_client(ws, provider_factory: Callable[[], ASRProvider]):
     backend_tag = provider.BACKEND_TAG
     log(f"client connected: {peer}")
     audio_bytes = 0
+    partial_count = 0
+    t_eof: float | None = None
+    final_sent = False
+    final_sent_ts: float | None = None
+    final_err: object = None
+    connect_failed = False
+    drain_timed_out = False
 
     try:
         try:
             await provider.connect()
         except Exception as e:
+            connect_failed = True
             log(f"  {peer} provider connect FAILED: {e!r}")
             await ws.send(json.dumps({
                 "type": "final",
@@ -223,10 +250,21 @@ async def _handle_one_client(ws, provider_factory: Callable[[], ASRProvider]):
 
         # Drain provider events to client in background.
         async def pump_events():
+            nonlocal partial_count, final_sent, final_sent_ts, final_err
             async for event in provider.events():
                 if "backend" not in event:
                     event = {**event, "backend": backend_tag}
                 await ws.send(json.dumps(event, ensure_ascii=False))
+                # Bookkeeping AFTER a successful send: a failed send must not
+                # be counted as a delivered final.
+                etype = event.get("type")
+                if etype == "partial":
+                    partial_count += 1
+                elif etype == "final":
+                    final_sent = True
+                    final_sent_ts = time.monotonic()
+                    if event.get("error_code") is not None:
+                        final_err = event.get("error_code")
 
         events_task = asyncio.create_task(pump_events())
 
@@ -252,11 +290,13 @@ async def _handle_one_client(ws, provider_factory: Callable[[], ASRProvider]):
                             log(f"  {peer} EOF (no audio) -> empty final")
                             events_task.cancel()
                             return
+                        t_eof = time.monotonic()
                         await provider.end_audio()
                         # Wait for events_task to emit final + return.
                         try:
                             await asyncio.wait_for(events_task, timeout=30)
                         except asyncio.TimeoutError:
+                            drain_timed_out = True
                             log(f"  {peer} drain timeout after EOF")
                         return
                     else:
@@ -264,6 +304,7 @@ async def _handle_one_client(ws, provider_factory: Callable[[], ASRProvider]):
             # Client closed without EOF — still try to drain a final if any audio sent.
             if audio_bytes > 0:
                 try:
+                    t_eof = time.monotonic()
                     await provider.end_audio()
                     await asyncio.wait_for(events_task, timeout=10)
                 except Exception:
@@ -284,6 +325,22 @@ async def _handle_one_client(ws, provider_factory: Callable[[], ASRProvider]):
             await provider.close()
         except Exception:
             pass
+        result: object
+        if connect_failed:
+            result = "connect_failed"
+        elif final_err is not None:
+            result = final_err
+        elif drain_timed_out:
+            result = "drain_timeout"
+        elif t_eof is not None and not final_sent:
+            result = "no_final"   # EOF with audio but provider never finalized
+        else:
+            result = "ok"
+        # Only a final actually sent AFTER eof yields a meaningful latency.
+        latency_ms: float | None = None
+        if final_sent and t_eof is not None and final_sent_ts is not None and final_sent_ts >= t_eof:
+            latency_ms = (final_sent_ts - t_eof) * 1000
+        log(format_session_metric(backend_tag, audio_bytes, partial_count, latency_ms, result))
         log(f"client disconnected: {peer}")
 
 

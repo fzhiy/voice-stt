@@ -23,7 +23,9 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-PORT             = int(os.environ.get("GATEWAY_PORT", "9080"))
+import config_validation as cfg
+
+PORT             = cfg.port_from_env("GATEWAY_PORT", 9080)
 WHISPER_PORT     = int(os.environ.get("WHISPER_PORT", "8080"))
 WHISPER_HOST     = os.environ.get("WHISPER_HOST", "127.0.0.1")
 LLM_BASE_URL     = os.environ.get("LLM_BASE_URL", "http://127.0.0.1:11434/v1")

@@ -46,10 +46,11 @@ try:
 except ImportError:
     _WEBRTCVAD_AVAILABLE = False
 import text_postprocess
+import config_validation as cfg
 from backends import get_streaming_backend, get_final_backend
 
 HOST = os.environ.get("STREAM_HOST", "127.0.0.1")
-PORT = int(os.environ.get("STREAM_PORT", "8082"))
+PORT = cfg.port_from_env("STREAM_PORT", 8082)
 PUNC_MODEL_NAME = os.environ.get("STREAM_PUNC_MODEL", "ct-punc-c")  # 空串=不加标点模型
 # History records: server-side append-only JSONL, 月滚动. HISTORY_ENABLED=0 关掉.
 HISTORY_ENABLED = os.environ.get("HISTORY_ENABLED", "1") not in ("0", "false", "no", "")
@@ -81,6 +82,7 @@ LEARN_URL = os.environ.get("LEARN_URL", "http://127.0.0.1:9080/v1/text/learn")
 LEARN_TIMEOUT = int(os.environ.get("LEARN_TIMEOUT", "30"))
 # 热词词典：boost Paraformer 对这些词的概率
 HOTWORDS_FILE = os.environ.get("HOTWORDS_FILE", str(Path(__file__).parent / "hotwords.yaml"))
+cfg.warn_if_path_missing("HOTWORDS_FILE", HOTWORDS_FILE)
 
 def log(*a):
     print(f"[{time.strftime('%H:%M:%S')}]", *a, flush=True)
