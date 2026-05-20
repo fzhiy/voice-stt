@@ -25,6 +25,24 @@ Thanks for your interest in contributing.
 
 ---
 
+## Running the tests / local dev
+
+The Python server has a unit-test suite + lint + type-check, mirrored by CI
+(`.github/workflows/ci.yml`). Run them locally with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv venv --python 3.12
+uv pip install pytest ruff mypy numpy pyyaml websockets
+uv run pytest -q                    # unit tests (deterministic core; no GPU needed)
+uv run ruff check server tests      # lint
+uv run mypy                         # type-check (scoped to the typed core)
+```
+
+All three must pass before a PR merges. The tests stub the heavy ML deps, so
+they run on any machine without a GPU or the FunASR/Qwen3 stack installed.
+
+---
+
 ## What to work on
 
 - **Bug reports** — open an issue first; attach `stream-debug.log` if it is a transcription problem.
