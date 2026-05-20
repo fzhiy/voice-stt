@@ -43,6 +43,9 @@ services:
         6. 直接输出润色后的文本，不要任何解释、前缀或引号
         7. 中英文混合句子保持自然的混排
 
+  # NOTE: funasr-qwen3 still uses runtime `pip install` because funasr / vllm /
+  # torch version compatibility has not yet been pinned against a GPU host run.
+  # Refining to a proper Dockerfile is a follow-up tracked separately.
   funasr-qwen3:
     image: pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
     container_name: voice-stream-gpu
@@ -83,7 +86,10 @@ services:
       && exec python funasr-stream-server.py"
 
   sherpa-onnx:
-    image: python:3.11-slim
+    build:
+      context: ./docker
+      dockerfile: sherpa-onnx.Dockerfile
+    image: voice-stt-sherpa-onnx:dev
     container_name: voice-stream-cpu
     profiles: ["cpu"]
     init: true
@@ -100,18 +106,6 @@ services:
       SHERPA_MODEL_DIR: /models/sherpa-onnx-streaming-paraformer-bilingual-zh-en
       SHERPA_USE_INT8: ${SHERPA_USE_INT8:-1}
       SHERPA_NUM_THREADS: ${SHERPA_NUM_THREADS:-4}
-    command: >
-      sh -lc "python -m pip install --no-cache-dir sherpa-onnx websockets numpy
-      && if [ ! -d /models/sherpa-onnx-streaming-paraformer-bilingual-zh-en ]; then
-        apt-get update
-        && apt-get install -y --no-install-recommends ca-certificates wget bzip2
-        && rm -rf /var/lib/apt/lists/*
-        && wget -O /tmp/sherpa-onnx-model.tar.bz2
-          https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2
-        && tar -xjf /tmp/sherpa-onnx-model.tar.bz2 -C /models
-        && rm -f /tmp/sherpa-onnx-model.tar.bz2;
-      fi
-      && exec python sherpa-onnx-stream-server.py"
 
 volumes:
   voice-stt-hf-cache:
