@@ -12,11 +12,15 @@ Mini Gateway: OpenAI-兼容的 /v1/audio/transcriptions
   python3 mini-gateway.py
   GATEWAY_PORT=9080 WHISPER_PORT=8080 LLM_MODEL=qwen2.5:7b python3 mini-gateway.py
 """
-import os, json, re, subprocess, time, sys, threading
-import urllib.request, urllib.error
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from email.parser import BytesParser
-from email.policy import default as email_default
+import os
+import json
+import re
+import subprocess
+import time
+import sys
+import threading
+import urllib.request
+import urllib.error
 from pathlib import Path
 
 PORT             = int(os.environ.get("GATEWAY_PORT", "9080"))
@@ -563,7 +567,6 @@ def parse_multipart(body, boundary):
             head, _, content = part.partition(b"\r\n\r\n")
         except Exception:
             continue
-        headers = email_default.header_factory("Content-Disposition", head.decode("latin1", "ignore"))
         # 简易抠 name 和 filename
         head_text = head.decode("latin1", "ignore")
         name = None
@@ -584,7 +587,7 @@ def parse_multipart(body, boundary):
 # 旧 http.server 单线程 → 多用户并发 polish/learn 会串行积累延迟. FastAPI + uvicorn
 # 的 async 路由让 LLM 调用 (urllib via run_in_executor) 并发. 兼容性: endpoint
 # URL + JSON shape 跟旧版完全一致.
-from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio

@@ -1,0 +1,74 @@
+# voice-stt — project metadata, dependency declaration, and tooling config.
+#
+# This repo is an application (a Windows/WSL client + a Python ASR server), not
+# a published library, so it is not pip-installable as a package. This file is
+# the single source of truth for the Python server's dependencies and for the
+# ruff / pytest / mypy configuration used by CI.
+
+[project]
+name = "voice-stt"
+version = "0.1.0"
+description = "Sub-second push-to-talk voice dictation for Windows + WSL with a pluggable self-hosted / cloud ASR backend."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "fzhiy" }]
+keywords = ["asr", "speech-to-text", "dictation", "funasr", "qwen3-asr", "websocket"]
+
+# Portable core shared by the voice-stt WS protocol layer (asr_common.py),
+# the cloud providers, and text post-processing (text_postprocess.py).
+dependencies = [
+    # >=14 required: volcano-stream-server.py calls connect(additional_headers=...),
+    # which replaced extra_headers in websockets 14.0.
+    "websockets>=14",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+# Batch HTTP gateway (mini-gateway.py) + Whisper-compatible path.
+gateway = ["fastapi>=0.110", "uvicorn>=0.27"]
+# funasr-stream-server.py reads full YAML config (cloud providers use a
+# dependency-free tolerant parser, so pyyaml is optional for them).
+yaml = ["pyyaml>=6"]
+# Dev / CI toolchain. Enough to import + test the deterministic core.
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.8",
+    "pyyaml>=6",
+]
+
+# NOTE: heavy, hardware-specific backends are NOT pinned here on purpose —
+# the correct build depends on the host's GPU / CUDA / driver. Install per
+# server/README.md:
+#   GPU final-pass : torch, funasr, qwen3-asr-toolkit, webrtcvad, vLLM
+#   CPU (zero-GPU) : sherpa-onnx
+
+[project.urls]
+Homepage = "https://github.com/fzhiy/voice-stt"
+Repository = "https://github.com/fzhiy/voice-stt"
+Changelog = "https://github.com/fzhiy/voice-stt/blob/main/CHANGELOG.md"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [".venv", ".venv-*", "dist"]
+
+[tool.ruff.lint]
+# Real-bug + style rules to start. Import sorting (I) and pyupgrade (UP) are
+# easy follow-ups once this baseline is green.
+select = ["E", "F", "W"]
+# E402: server entry-point scripts intentionally set env / sys.path before imports.
+# E501: long lines (mostly CJK rationale comments) — not worth reflowing now.
+# E741: legacy single-char loop vars in scripts.
+ignore = ["E402", "E501", "E741"]
+
+[tool.pytest.ini_options]
+pythonpath = ["server"]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+# Scoped to the deterministic, dependency-light core; expand over time.
+files = ["server/asr_common.py", "server/text_postprocess.py"]

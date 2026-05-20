@@ -59,7 +59,7 @@ class Qwen3ASRBackend(FinalPassBackend):
                 return
             except Exception as e:
                 _log(f"WARN: vLLM backend failed ({e!r}), falling back to transformers (SLOW: ~20-50x slower than vLLM).")
-                _log(f"WARN: to use vLLM, ensure CUDA_HOME=/usr/local/cuda-13.0 PATH=/usr/local/cuda-13.0/bin:$PATH is exported.")
+                _log("WARN: to use vLLM, ensure CUDA_HOME=/usr/local/cuda-13.0 PATH=/usr/local/cuda-13.0/bin:$PATH is exported.")
                 t0 = time.time()
         if self._model is None:
             try:

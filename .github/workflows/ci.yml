@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: MIT
+# Lint (ruff) + type-check (mypy, typed core) + unit tests (pytest) for the
+# Python ASR server. Runs on every PR and push to main — the merge quality gate.
+name: ci
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Create venv (Python 3.12)
+        run: uv venv --python 3.12
+
+      - name: Install dev + core deps
+        # Mirrors pyproject.toml [project].dependencies + [project.optional-dependencies].dev.
+        # voice-stt is a scripts app (not pip-installable), so deps are installed directly.
+        run: uv pip install pytest ruff mypy numpy pyyaml websockets
+
+      - name: Ruff (lint)
+        run: uv run ruff check server tests
+
+      - name: Mypy (typed core)
+        run: uv run mypy
+
+      - name: Pytest
+        run: uv run pytest -q

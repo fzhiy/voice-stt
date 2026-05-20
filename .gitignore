@@ -53,5 +53,5 @@ wsl/happy-voice.sh
 # Internal license analysis of the dropped windows/lib/ (not shipped in v0.1)
 docs/dev/vendor-license-report.md
 
-# Test infra not yet wired to CI — kept local until pytest config + workflow exist
-tests/
+# pytest cache
+.pytest_cache/

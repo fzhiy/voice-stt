@@ -327,7 +327,6 @@ def _vad_chunk_pcm(pcm_int16_bytes: bytes, sample_rate: int = 16000) -> list:
     if not _WEBRTCVAD_AVAILABLE:
         return [pcm_int16_bytes]
     frame_ms = 30  # webrtcvad 支持 10/20/30 ms
-    bytes_per_sec = sample_rate * 2  # int16 mono
     frame_bytes = int(sample_rate * frame_ms / 1000) * 2
     total_frames = len(pcm_int16_bytes) // frame_bytes
     if total_frames == 0:

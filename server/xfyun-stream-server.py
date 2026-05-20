@@ -127,7 +127,7 @@ class XfyunProvider(ASRProvider):
     async def connect(self) -> None:
         url = _build_ws_url(self.app_id, self.api_key)
         self.upstream = await websockets.connect(url, max_size=None, open_timeout=10)
-        log(f"  upstream connect (xfyun rtasr)")
+        log("  upstream connect (xfyun rtasr)")
         # The first message from xfyun is {"action":"started"} — we let events()
         # see/ignore it rather than blocking here.
 

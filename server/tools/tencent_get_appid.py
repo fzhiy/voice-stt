@@ -26,7 +26,6 @@ def call_get_user_appid(secret_id: str, secret_key: str) -> dict:
     service = "cam"
     host = "cam.tencentcloudapi.com"
     endpoint = f"https://{host}"
-    region = ""  # cam is global
     action = "GetUserAppId"
     version = "2019-01-16"
     algorithm = "TC3-HMAC-SHA256"

@@ -10,7 +10,6 @@ import base64
 import hashlib
 import hmac
 import json
-import struct
 import time
 import urllib.request
 import wave
@@ -84,7 +83,9 @@ def make_short_wav(src: Path, duration_sec: float = 5.0) -> bytes:
     import io
     buf = io.BytesIO()
     with wave.open(buf, "wb") as w:
-        w.setnchannels(nch); w.setsampwidth(sw); w.setframerate(sr)
+        w.setnchannels(nch)
+        w.setsampwidth(sw)
+        w.setframerate(sr)
         w.writeframes(pcm)
     return buf.getvalue()
 

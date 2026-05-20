@@ -32,7 +32,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import AsyncIterator, Callable, Optional
+from typing import AsyncIterator, Callable
 
 import websockets
 
