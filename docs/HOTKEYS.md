@@ -39,9 +39,11 @@ script (tray icon → Reload, or restart it).
 The batch gateway (`server/mini-gateway.py`) can transform a transcript
 before it is pasted:
 
-- **polish** — remove fillers + fix punctuation without changing meaning
+- **polish** — remove fillers + fix punctuation without changing meaning (default)
+- **strict_correction** — fix ASR errors (homophones, technical terms) only; preserves fillers, original punctuation, and inline self-corrections
 - **translate** — translate the transcript
-- **prompt-optimize** — rewrite into a cleaner prompt
+- **prompt** — rewrite into a cleaner prompt
+- **quick** — return ASR text unchanged (skip LLM)
 - **custom** — your own server-side prompt
 
 These are selected on the server side (see `docs/CONFIG.md` for the gateway

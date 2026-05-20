@@ -24,6 +24,8 @@ Versioning follows [Semantic Versioning](https://semver.org/) (pre-1.0; breaking
   - `provider_smoke.py` — generic E2E test for any voice-stt-protocol WS
   - `tencent_get_appid.py` — resolve UIN/AppID confusion via `cam:GetUserAppId`
   - `tencent_sentence_probe.py` — A/B probe (HTTP works ≠ WS works)
+- Gateway post-process mode `strict_correction` — fixes ASR errors
+  (homophones, technical terms) without removing fillers or rewriting tone.
 
 ### Changed
 - Paste flow no longer restores previous clipboard — transcribed text stays
