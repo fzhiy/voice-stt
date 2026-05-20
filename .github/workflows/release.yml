@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  portable:
+    name: Build portable release
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build portable ZIP
+        run: .\scripts\build-portable.ps1 -OutDir .\dist
+
+      - name: Generate SHA256 checksum
+        id: artifacts
+        run: |
+          $zips = @(Get-ChildItem -Path .\dist -Filter *.zip -File)
+          if ($zips.Count -ne 1) {
+            throw "Expected exactly one ZIP in dist, found $($zips.Count)."
+          }
+
+          $zip = $zips[0]
+          $checksumPath = "$($zip.FullName).sha256"
+          $hash = (Get-FileHash -Path $zip.FullName -Algorithm SHA256).Hash
+          "$hash  $($zip.Name)" | Set-Content -Path $checksumPath -Encoding ascii
+
+          "zip_path=$($zip.FullName)" >> $env:GITHUB_OUTPUT
+          "checksum_path=$checksumPath" >> $env:GITHUB_OUTPUT
+
+      # Follow-ups intentionally stay human/account-gated: winget submission and code-signing.
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: voice-stt ${{ github.ref_name }}
+          files: |
+            ${{ steps.artifacts.outputs.zip_path }}
+            ${{ steps.artifacts.outputs.checksum_path }}

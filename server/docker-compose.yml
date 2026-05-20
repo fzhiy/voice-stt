@@ -1,6 +1,10 @@
-# 部署到远端 GPU 主机的 ~/voice-stack/
-# 复用模式：复用宿主机已装好的 whisper-server 和 Ollama
-# 启动：docker compose --env-file .env.server up -d
+# voice-stt server profiles:
+#   docker compose --env-file .env.server --profile gpu up -d
+#   docker compose --env-file .env.server --profile cpu up -d
+#
+# The gateway stays unprofiled so existing `docker compose up -d` installs keep
+# working for the optional batch path. The gpu/cpu profiles select the streaming
+# backend exposed to the Windows client on STREAM_PORT.
 
 services:
   gateway:
@@ -38,3 +42,77 @@ services:
         5. 编程术语保持原样（如 OAuth、regex、JSON、localhost、git、Docker、Claude Code、Codex、WSL、Tailscale）
         6. 直接输出润色后的文本，不要任何解释、前缀或引号
         7. 中英文混合句子保持自然的混排
+
+  funasr-qwen3:
+    image: pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
+    container_name: voice-stream-gpu
+    profiles: ["gpu"]
+    init: true
+    restart: unless-stopped
+    working_dir: /app
+    depends_on:
+      - gateway
+    ports:
+      - "${STREAM_PORT:-8082}:${STREAM_PORT:-8082}"
+    volumes:
+      - ./:/app:ro
+      - voice-stt-hf-cache:/root/.cache
+    environment:
+      STREAM_HOST: 0.0.0.0
+      STREAM_PORT: ${STREAM_PORT:-8082}
+      FINAL_BACKEND: ${FINAL_BACKEND:-qwen3_asr}
+      QWEN3_ASR_PATH: ${QWEN3_ASR_PATH:-/root/.cache/qwen3-asr-0.6b}
+      QWEN3_BACKEND: ${QWEN3_BACKEND:-vllm}
+      QWEN3_VLLM_GPU_FRAC: ${QWEN3_VLLM_GPU_FRAC:-0.5}
+      QWEN3_VLLM_MAX_MODEL_LEN: ${QWEN3_VLLM_MAX_MODEL_LEN:-4096}
+      USE_QWEN3_ASR: ${USE_QWEN3_ASR:-1}
+      HF_ENDPOINT: ${HF_ENDPOINT:-}
+      POLISH_URL: http://gateway:8080/v1/text/polish
+      LEARN_URL: http://gateway:8080/v1/text/learn
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: >
+      bash -lc "python -m pip install --no-cache-dir
+      --extra-index-url https://download.pytorch.org/whl/cu121
+      funasr vllm torch torchaudio transformers websockets numpy huggingface_hub
+      && exec python funasr-stream-server.py"
+
+  sherpa-onnx:
+    image: python:3.11-slim
+    container_name: voice-stream-cpu
+    profiles: ["cpu"]
+    init: true
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "${STREAM_PORT:-8082}:${STREAM_PORT:-8082}"
+    volumes:
+      - ./:/app:ro
+      - voice-stt-sherpa-models:/models
+    environment:
+      LISTEN_HOST: 0.0.0.0
+      LISTEN_PORT: ${STREAM_PORT:-8082}
+      SHERPA_MODEL_DIR: /models/sherpa-onnx-streaming-paraformer-bilingual-zh-en
+      SHERPA_USE_INT8: ${SHERPA_USE_INT8:-1}
+      SHERPA_NUM_THREADS: ${SHERPA_NUM_THREADS:-4}
+    command: >
+      sh -lc "python -m pip install --no-cache-dir sherpa-onnx websockets numpy
+      && if [ ! -d /models/sherpa-onnx-streaming-paraformer-bilingual-zh-en ]; then
+        apt-get update
+        && apt-get install -y --no-install-recommends ca-certificates wget bzip2
+        && rm -rf /var/lib/apt/lists/*
+        && wget -O /tmp/sherpa-onnx-model.tar.bz2
+          https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2
+        && tar -xjf /tmp/sherpa-onnx-model.tar.bz2 -C /models
+        && rm -f /tmp/sherpa-onnx-model.tar.bz2;
+      fi
+      && exec python sherpa-onnx-stream-server.py"
+
+volumes:
+  voice-stt-hf-cache:
+  voice-stt-sherpa-models:
