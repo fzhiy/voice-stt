@@ -26,6 +26,12 @@ Versioning follows [Semantic Versioning](https://semver.org/) (pre-1.0; breaking
   - `tencent_sentence_probe.py` — A/B probe (HTTP works ≠ WS works)
 - Gateway post-process mode `strict_correction` — fixes ASR errors
   (homophones, technical terms) without removing fillers or rewriting tone.
+- Custom-mode prompt variables: `system_prompt` templates may now
+  reference `{text}`, `{selected}`, `{clipboard}` placeholders, which
+  the gateway substitutes (single-pass regex, no re-expansion) from
+  the corresponding JSON body fields. Empty/missing fields fall through
+  as empty strings; placeholders are always expanded when present (no
+  escape syntax); built-in modes are unaffected.
 - OpenAI-compatible Bearer ASR backend (`server/openai-compat-stream-server.py`)
   — a new ASRProvider for any Whisper-compatible HTTP endpoint
   (openai.com, Groq, self-hosted). Configured via

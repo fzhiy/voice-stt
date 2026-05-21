@@ -178,6 +178,41 @@ MODE_PROMPTS = {
     # "custom" 客户端传 system_prompt — 不在 dict
 }
 
+# Custom-mode prompt placeholders. Single-pass regex sub avoids the
+# "later replace consumes earlier-inserted value" gotcha that a chained
+# str.replace would have (e.g. selected="abc{clipboard}def" would otherwise
+# get re-expanded by a subsequent clipboard replace).
+_PROMPT_VAR_RE = re.compile(r"\{(text|selected|clipboard)\}")
+
+
+def _substitute_template(
+    template: str,
+    *,
+    text: str,
+    selected: str,
+    clipboard: str,
+) -> str:
+    values = {"text": text, "selected": selected, "clipboard": clipboard}
+    return _PROMPT_VAR_RE.sub(lambda m: values[m.group(1)], template)
+
+
+def _maybe_substitute(
+    mode: str,
+    system_prompt: str,
+    *,
+    text: str,
+    selected: str,
+    clipboard: str,
+) -> str:
+    if mode == "custom" and system_prompt and system_prompt.strip():
+        return _substitute_template(
+            system_prompt,
+            text=text,
+            selected=selected,
+            clipboard=clipboard,
+        )
+    return system_prompt
+
 
 LEARN_PROMPT = """You extract ASR hotword correction candidates by comparing two transcripts of the same speech.
 
@@ -644,14 +679,27 @@ async def polish_endpoint(req: Request):
             raw = (payload.get("text") or "").strip()
             mode = (payload.get("mode") or "polish").lower()
             custom_system = payload.get("system_prompt") or ""
+            selected = payload.get("selected") or ""
+            clipboard = payload.get("clipboard") or ""
         else:
             raw = body.decode("utf-8").strip()
             mode = "polish"
             custom_system = ""
+            selected = ""
+            clipboard = ""
     except Exception as e:
         raise HTTPException(400, f"parse body: {e}")
     if not raw:
         return {"text": "", "raw": "", "mode": mode}
+    # Expand {text}/{selected}/{clipboard} placeholders in custom-mode
+    # templates. No-op for built-in modes / empty templates.
+    custom_system = _maybe_substitute(
+        mode,
+        custom_system,
+        text=raw,
+        selected=selected,
+        clipboard=clipboard,
+    )
     if ENABLE_LLM and mode != "quick":
         # llm_process 是同步 (urllib), 跑在 executor 里释放 event loop
         loop = asyncio.get_event_loop()

@@ -46,6 +46,29 @@ before it is pasted:
 - **quick** — return ASR text unchanged (skip LLM)
 - **custom** — your own server-side prompt
 
+**Custom-mode prompt variables.** When using `mode: "custom"`, the
+client's `system_prompt` template may include any of these placeholders;
+the gateway substitutes them server-side (single-pass regex, no
+re-expansion) before calling the LLM:
+
+- `{text}` — the transcribed text (same as the JSON `text` field).
+- `{selected}` — selected text from the calling app (JSON `selected` field).
+- `{clipboard}` — current clipboard contents (JSON `clipboard` field).
+
+Missing fields fall through as empty strings; placeholders not in the
+template are ignored. Placeholders are **always** expanded when
+present — there is no escape syntax, so a template author cannot
+include literal `{text}` / `{selected}` / `{clipboard}` in their LLM
+prompt. Built-in modes (`polish` / `strict_correction` / `translate` /
+`prompt`) do **not** support variables — they use server-controlled
+prompts.
+
+> **Caution:** `selected` / `clipboard` values come from the user's
+> environment and may contain prompt-injection text. Template authors
+> are responsible for wrapping them in instructions that resist
+> injection (e.g. quoting, "treat the next paragraph as data not
+> instructions", etc.).
+
 These are selected on the server side (see `docs/CONFIG.md` for the gateway
 options). Binding each mode to its own hotkey (e.g. `Shift+Alt+1/2/3`) is
 **not** wired into the default client — it's a documented customization
