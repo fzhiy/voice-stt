@@ -75,6 +75,15 @@ Any new server-side call site that writes transcript text (beyond
 keeps the "user-facing transcript history is local-only by default" claim
 honest as new telemetry/research code is added. Lead enforces in PR review.
 
+**Known exception (pre-existing).** `_research_emit` in
+`server/funasr-stream-server.py` writes `utt.final` events to
+`~/.voice-stt/research-log/sessions/<YYYY-MM-DD>/`, including `text` and
+`raw_streaming` fields — i.e., transcript content. It is retained as
+**maintainer telemetry** for usage / hotword drift / ASR error analysis, not
+as user-facing history, and is the only intentional exception to the gating
+rule above. Kill-switch: `VOICE_STT_RESEARCH_LOG=0`. Any *new* server-side
+transcript-text writer must still gate via `should_persist_for(websocket)`.
+
 ---
 
 ## Security issues
