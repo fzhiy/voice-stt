@@ -46,9 +46,10 @@ if ($PartialTextPath -and (Test-Path $PartialTextPath)) {
     Remove-Item $PartialTextPath -Force -ErrorAction SilentlyContinue
 }
 if (-not $DeviceName) { $DeviceName = $env:RECORD_DEVICE_NAME }
+if (-not $DeviceName) { $DeviceName = $env:MIC_DEVICE_NAME }   # alias accepted since v0.1.1
 if (-not $DeviceName) {
     # Discover mic dshow names with: ffmpeg -list_devices true -f dshow -i dummy
-    Write-Warning "DeviceName not set; pass -DeviceName 'your mic device' or set RECORD_DEVICE_NAME env var"
+    Write-Warning "DeviceName not set; pass -DeviceName 'your mic device' or set RECORD_DEVICE_NAME (or MIC_DEVICE_NAME) env var"
     exit 1
 }
 

@@ -9,6 +9,12 @@ Versioning follows [Semantic Versioning](https://semver.org/) (pre-1.0; breaking
 
 ## [Unreleased]
 
+_No changes since v0.1.1._
+
+---
+
+## [v0.1.1] - 2026-05-21
+
 ### Added
 - **Cloud ASR providers** via pluggable `ASRProvider` ABC in `server/asr_common.py`:
   - Volcano 火山豆包 ASR 2.0 — binary frame protocol, generous free tier (20 h / 6 mo + 注册送 40 h)
@@ -49,6 +55,15 @@ Versioning follows [Semantic Versioning](https://semver.org/) (pre-1.0; breaking
 - Volcano: EOF-with-no-audio now short-circuits to `{type:final,text:""}`
   instead of hanging the upstream session. Saved free-tier session quota
   during Test-Connection probes from the iPhone Happy fork client
+- `MIC_DEVICE_NAME` now works as an alias for `RECORD_DEVICE_NAME` in both
+  `windows/voice-mic-daemon.ps1` and `windows/voice-ptt-stream-ws.ps1`.
+  Resolves the v0.1.0 "not yet wired" admission; either env var name
+  starts the mic. `RECORD_DEVICE_NAME` still takes precedence if both set.
+- `FINAL_BACKEND=cloud-volcano` no longer claims to be a "reserved v0.2
+  placeholder". The error message now points users at the actual
+  architecture pattern (cloud providers run as sibling WS servers, e.g.
+  `python server/volcano-stream-server.py`, not as final-pass backends).
+  Reduces confusion when a stale config references the legacy value.
 
 ---
 

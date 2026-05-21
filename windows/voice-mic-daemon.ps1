@@ -18,7 +18,7 @@
 [CmdletBinding()]
 param(
     # Mic dshow device name. Discover with: ffmpeg -list_devices true -f dshow -i dummy
-    # Resolution order: -DeviceName param > $env:RECORD_DEVICE_NAME > error.
+    # Resolution order: -DeviceName param > $env:RECORD_DEVICE_NAME > $env:MIC_DEVICE_NAME > error.
     [string]$DeviceName = "",
     [int]$Rate          = 16000,
     [int]$BufferMs      = 500,
@@ -30,8 +30,9 @@ param(
 # Fall back to env var if -DeviceName not supplied (allows AHK-spawned daemons to inherit
 # the user's .env without having to pass -DeviceName on the command line every time).
 if (-not $DeviceName) { $DeviceName = $env:RECORD_DEVICE_NAME }
+if (-not $DeviceName) { $DeviceName = $env:MIC_DEVICE_NAME }   # alias accepted since v0.1.1
 if (-not $DeviceName) {
-    Write-Error "Mic device name not set. Pass -DeviceName 'your mic' or set RECORD_DEVICE_NAME env var. Discover names with: ffmpeg -list_devices true -f dshow -i dummy"
+    Write-Error "Mic device name not set. Pass -DeviceName 'your mic' or set RECORD_DEVICE_NAME (or MIC_DEVICE_NAME) env var. Discover names with: ffmpeg -list_devices true -f dshow -i dummy"
     exit 91
 }
 
