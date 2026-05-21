@@ -61,6 +61,8 @@ ai_agent:
   - hook
   - skill
   - subagent
+  - routine
+  - widget
   - plan mode
   - slash command
   - marketplace
@@ -426,6 +428,7 @@ user_added:
   - "current session"
   - "lead agent"
   - "HappyCoder"
+  - "scribble"
   - "Max Effort"
   - "Extra High Effort"
   - "Continual Learning"

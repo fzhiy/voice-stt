@@ -25,6 +25,18 @@ QWEN3_VLLM_QUANTIZATION = os.environ.get("QWEN3_VLLM_QUANTIZATION", "").strip() 
 # Optional CPU offload (in GB). Trades latency for GPU memory by keeping N GB of
 # weights on CPU and swapping to GPU on demand. Use only if quantization can't be applied.
 QWEN3_VLLM_CPU_OFFLOAD_GB = float(os.environ.get("QWEN3_VLLM_CPU_OFFLOAD_GB", "0") or "0")
+# Language tag passed to Qwen3-ASR per inference. Default "Chinese" hard-locks the
+# decoder, suppressing English-token emission — chosen on 2026-05-15 to dodge an
+# EOS-truncation bug observed on long mixed-language audio with language=None.
+# The cost is over-Sinicization of English technical terms ("subagent" -> "子线索",
+# "Sonnet" -> "sonic"). Set QWEN3_LANGUAGE=auto to let the model self-detect and
+# emit English in Latin script; "" or "none" passes None (legacy behavior, may
+# regress to EOS truncation). A/B test on representative audio before flipping.
+QWEN3_LANGUAGE = os.environ.get("QWEN3_LANGUAGE", "Chinese").strip()
+# Max new tokens per Qwen3-ASR inference. Bumped from the historical 512 to 4096
+# (matches the qwen_asr package's own demo defaults). Higher value is safe with
+# vLLM — it allocates KV cache per actual emission, not the cap.
+QWEN3_MAX_NEW_TOKENS = int(os.environ.get("QWEN3_MAX_NEW_TOKENS", "4096"))
 
 
 def _log(*a):
@@ -84,7 +96,7 @@ class Qwen3ASRBackend(FinalPassBackend):
             max_model_len=QWEN3_VLLM_MAX_MODEL_LEN,
             enforce_eager=True,
             max_inference_batch_size=QWEN3_VLLM_BATCH,
-            max_new_tokens=512,
+            max_new_tokens=QWEN3_MAX_NEW_TOKENS,
             dtype="bfloat16",
         )
         if QWEN3_VLLM_QUANTIZATION:
@@ -103,7 +115,7 @@ class Qwen3ASRBackend(FinalPassBackend):
             dtype=torch.bfloat16,
             device_map="cuda:0",
             max_inference_batch_size=1,
-            max_new_tokens=512,
+            max_new_tokens=QWEN3_MAX_NEW_TOKENS,
         )
 
     @property
@@ -140,14 +152,15 @@ class Qwen3ASRBackend(FinalPassBackend):
                     _log(f"  qwen3-asr skip: trimmed to {arr.size/sample_rate:.2f}s, rms min/p50/max={rms_stats[0]:.4f}/{rms_stats[1]:.4f}/{rms_stats[2]:.4f}")
                 return ("", "")
             t = time.time()
-            # language="Chinese" 强锁语种 tag。原本 None 让模型自检，但长中英混音频上
-            # 模型偶尔返回空 lang 导致 EOS 触发偏早、输出被截断（见
-            # docs/dev/changes/2026-05-15-verify-qwen3-context.md）。
-            # context 里已有"保留英文原样不翻译"规则保护品牌词。
+            # Language arg is configurable via QWEN3_LANGUAGE env var (see module
+            # top). Default "Chinese" hard-locks for safety; "auto" allows English
+            # token emission for mixed Chinese-English dictation; "" or "none"
+            # passes None (legacy, may EOS-truncate on long audio).
+            lang_arg = QWEN3_LANGUAGE if QWEN3_LANGUAGE.lower() not in ("", "none") else None
             results = self._model.transcribe(
                 audio=(arr, sample_rate),
                 context=self._context,
-                language="Chinese",
+                language=lang_arg,
             )
             if not results:
                 return ("", "")
