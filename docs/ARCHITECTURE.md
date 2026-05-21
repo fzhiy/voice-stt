@@ -1,38 +1,110 @@
 # Architecture
 
-voice-stt is a **two-process system**: a Windows client that captures audio
-and renders the caption, and a Linux GPU host that runs the ASR models. They
-talk over WebSocket (streaming path) or HTTP (batch path).
+voice-stt is a **two-process system**: a Windows client captures audio and
+renders the caption, and a Linux GPU host runs the ASR models.
+
+This doc is layered top-down — read as far as you need.
+
+- **Layer 1** (any user): the mental model — what happens when you press the key.
+- **Layer 2** (power user / deployer): the two recording modes and when each is used.
+- **Layer 3** (developer / contributor): wire-level sequence diagrams and design rationale.
 
 ---
 
-## Roles
+## Layer 1 — How it works (mental model)
 
-| Node | Role | What runs |
+One push-to-talk gesture flows through four stages:
+
+```mermaid
+%%{init: {'theme':'neutral'}}%%
+flowchart LR
+    K["1. Press<br/>Shift+Alt+S"]:::user
+    R["2. Windows records<br/>+ shows live caption<br/>(updates every ~300 ms)"]:::client
+    T["3. GPU server<br/>transcribes &amp; corrects"]:::server
+    P["4. Final text pastes<br/>(~1 s after release)"]:::user
+    K --> R
+    R -- "release key" --> T
+    T --> P
+
+    classDef user fill:#fff3e0,stroke:#e65100,color:#000
+    classDef client fill:#e8f5e9,stroke:#1b5e20,color:#000
+    classDef server fill:#e3f2fd,stroke:#0d47a1,color:#000
+```
+
+**What you see and feel**
+
+- Hold `Shift+Alt+S` and speak. A live caption overlay appears under your
+  cursor — that's the partial transcript, refreshing every ~300 ms while
+  you're still talking.
+- Release the key. About 1 second later, the corrected final text is pasted
+  into whatever app had focus when you pressed.
+
+**Who does what**
+
+| Side | Responsibility (not "what runs") |
+|---|---|
+| **Your Windows PC** | Listens for the hotkey, captures the microphone, shows the live caption overlay, pastes the final text where your cursor was. |
+| **A Linux GPU host** (yours or one you trust) | Receives the audio, runs the speech-recognition models, returns transcripts. |
+
+A single GPU host can serve many Windows clients on the same Tailscale or LAN.
+
+That's the entire user-facing story. Everything below is implementation
+detail — skip it unless you're deploying or hacking on the code.
+
+---
+
+## Layer 2 — Two recording modes
+
+voice-stt has two ways to get your speech to the server. You'll mostly use
+streaming mode; batch mode exists as an escape hatch and as the bridge to
+cloud Whisper-compatible APIs.
+
+| | **Streaming mode** (default) | **Batch mode** (optional) |
 |---|---|---|
-| **Windows host** | Capture + UI | AutoHotkey hotkey daemon, ffmpeg mic capture, PowerShell WebSocket client, caption renderer |
-| **Linux GPU host** | ASR backend | `funasr-stream-server.py` (streaming) and/or Docker Compose stack (batch); FunASR Paraformer + Qwen3-ASR (0.6B default, 1.7B optional) |
+| Hotkey | `Shift+Alt+S` | `Shift+Alt+V` |
+| Live caption while speaking? | **Yes** (~300 ms partials) | No |
+| Final-transcript latency | ~1 s after release | ~3–10 s for a ~10 s utterance |
+| Transport | WebSocket (PCM in, text out) | HTTP (upload WAV, get JSON back) |
+| Why use it | Everyday dictation. Low latency, live feedback. | When you want to swap the local stack for any Whisper-compatible HTTP API. |
 
-A single GPU host can serve many Windows clients on the same Tailscale or LAN
-network.
+Each hotkey is wired to one mode — there is no setting to flip between them.
+If you don't need batch mode, you can ignore everything below and just use
+`Shift+Alt+S`.
+
+A third hotkey, `Shift+Alt+E`, cycles which **streaming backend** answers
+`Shift+Alt+S` (local Qwen3 vs. cloud providers like 火山豆包 / Tencent /
+讯飞 / OpenAI-compatible). It does not change the mode — only which server
+the streaming WebSocket connects to. See
+[docs/PROVIDERS.md](PROVIDERS.md).
 
 ---
 
-## Streaming path (Shift+Alt+S, primary)
+## Layer 3 — Engineering detail
 
-The low-latency dictation flow. WebSocket carries PCM upstream and partial /
-final transcripts downstream.
+For developers and contributors. Diagrams use Mermaid `sequenceDiagram` with
+participants grouped by **side** (Windows / Server) via `box` so the
+horizontal lifelines aren't visually crowded.
+
+### Streaming path (Shift+Alt+S, primary)
+
+**Latency budget** (typical, GPU host on LAN):
+- Live partial captions: ~300 ms after speech onset.
+- Final transcript: ~1 s after key release.
 
 ```mermaid
 %%{init: {'theme':'neutral'}}%%
 sequenceDiagram
     actor User
-    participant AHK as Windows / voice-hotkey.ahk
-    participant Mic as voice-mic-daemon (ring buffer)
+    box rgb(232,245,233) Windows side
+    participant AHK as voice-hotkey.ahk
+    participant Mic as voice-mic-daemon<br/>(ring buffer)
     participant WS as voice-ptt-stream-ws.ps1
+    end
+    box rgb(227,242,253) Server side
     participant Server as funasr-stream-server :8082
-    participant Para as Paraformer
-    participant Qwen3 as Qwen3-ASR-1.7B (vLLM FP8)
+    participant Para as Paraformer (partials)
+    participant Qwen3 as Qwen3-ASR-1.7B (final, vLLM FP8)
+    end
 
     Note over Mic: always-on 16 kHz PCM, 500 ms ring
 
@@ -41,15 +113,15 @@ sequenceDiagram
     AHK->>WS: launch PS client
     WS->>Server: WS open + push 100 ms PCM chunks
 
-    loop streaming partials
+    loop while user is holding the key
         Server->>Para: chunk
         Para-->>Server: partial
         Server-->>WS: partial text
-        WS-->>User: write partial.txt → preview overlay
+        WS-->>User: live caption overlay
     end
 
     User->>AHK: Shift+Alt+S release
-    AHK->>WS: stop.signal
+    AHK->>WS: stop signal
     WS->>Server: end-of-audio
     Server->>Qwen3: full PCM
     Qwen3-->>Server: final transcript
@@ -58,32 +130,29 @@ sequenceDiagram
     AHK->>AHK: clipboard save + paste to release_hwnd
 ```
 
-**Latency budget** (typical):
-- Partial captions: ~300 ms after speech onset.
-- Final transcript: ~1 s after Shift+Alt+S release.
+### Batch path (Shift+Alt+V, optional)
 
----
-
-## Batch path (Shift+Alt+V, optional)
-
-Used when the streaming path isn't available, or when you want to swap in a
-cloud Whisper-compatible API. Records the whole utterance to a WAV file,
-uploads it, gets a single response.
+**Latency budget**: 3–10 s for a ~10 s utterance, depending on Whisper config
+and whether LLM polish is enabled.
 
 ```mermaid
 %%{init: {'theme':'neutral'}}%%
 sequenceDiagram
     actor User
-    participant AHK as Windows / voice-hotkey.ahk
+    box rgb(232,245,233) Windows side
+    participant AHK as voice-hotkey.ahk
     participant Record as record.ps1
     participant Upload as voice-input.ps1
+    end
+    box rgb(227,242,253) Server side
     participant Gateway as mini-gateway.py :9080
     participant Whisper as Whisper Large-v3-turbo :8081
     participant Ollama as Ollama Qwen2.5 7B (optional)
+    end
 
     User->>AHK: Shift+Alt+V press (hold)
     AHK->>Record: capture utterance
-    Record->>Record: write %TEMP%/voice-stt-input-<pid>.wav
+    Record->>Record: write %TEMP%\voice-stt-input-<pid>.wav
     User->>AHK: Shift+Alt+V release
     AHK->>Upload: POST WAV
     Upload->>Gateway: /v1/audio/transcriptions
@@ -97,41 +166,31 @@ sequenceDiagram
 
     Gateway-->>Upload: single JSON response
     Upload-->>AHK: text
-    AHK->>AHK: paste
+    AHK->>AHK: paste to release_hwnd
 ```
 
-**Latency budget**: 3-10 s for a ~10 s utterance, depending on Whisper config
-and whether LLM polish is enabled.
+### Why this design
 
----
+**Capture on the Windows client, not on the GPU host.** Audio capture is
+shortest-path where the user is. Routing the user's audio device through the
+GPU host adds rewriteable layers and breaks when the user roams to a
+different network.
 
-## Why this design
+**WebSocket for streaming, HTTP for batch.** WebSocket keeps a hot
+connection so partial transcripts can stream back without re-handshaking.
+HTTP is what every Whisper-compatible API speaks, so the batch path doubles
+as the bridge to hosted Whisper providers.
 
-### Capture on the Windows client, not on the GPU host
+**Qwen3-ASR-1.7B for final, Paraformer for partials.** Paraformer is fast
+(~50 ms inference) but lower accuracy — great for the live caption while you
+are still speaking. Qwen3-ASR-1.7B is heavier (~500 ms inference) but
+substantially more accurate — runs once on the full audio after release.
 
-Audio capture is path-shortest where the user is. Sending PCM over the
-network adds 5-50 ms; routing the user's audio device through the GPU host
-adds rewriteable layers and breaks when the user is on a different network.
-
-### WebSocket for streaming, HTTP for batch
-
-WebSocket keeps a hot connection so partial transcripts can stream back
-without re-handshaking. HTTP is what every Whisper-compatible API speaks, so
-the batch path doubles as the future cloud-ASR bridge (planned for v0.2).
-
-### Qwen3-ASR-1.7B for final, Paraformer for partials
-
-Paraformer is fast (~50 ms inference) but lower accuracy; great for the
-live caption while you're still speaking. Qwen3-ASR-1.7B is heavier (~500 ms
-inference) but much more accurate; runs once on the full audio after release
-to produce the final paste-able text.
-
-### Tailscale or LAN, not a public endpoint
-
-Easier to secure (mesh + ACL), no certificate management, no public IP
-required, and zero per-month cost for personal use. The server binds to
-`127.0.0.1:8082` by default (loopback only); set `STREAM_HOST=0.0.0.0` to
-expose over LAN / Tailscale and gate with a firewall + Tailscale ACL.
+**Tailscale or LAN, not a public endpoint.** Easier to secure (mesh + ACL),
+no certificate management, no public IP, zero per-month cost for personal
+use. The server binds to `127.0.0.1:8082` by default (loopback only); set
+`STREAM_HOST=0.0.0.0` to expose over LAN / Tailscale and gate with a
+firewall + Tailscale ACL.
 
 ---
 
@@ -140,9 +199,9 @@ expose over LAN / Tailscale and gate with a firewall + Tailscale ACL.
 - **Transport**: Tailscale provides WireGuard end-to-end encryption by
   default; LAN deployments inherit your local network's trust model.
 - **Server binding**: `funasr-stream-server.py` listens on `127.0.0.1`
-  (loopback) by default — no network exposure out of the box. Override
-  with `STREAM_HOST=0.0.0.0` to bind to all interfaces, then gate with a
-  firewall + Tailscale ACL (or LAN-only routing).
+  (loopback) by default — no network exposure out of the box. Override with
+  `STREAM_HOST=0.0.0.0` to bind to all interfaces, then gate with a firewall
+  + Tailscale ACL (or LAN-only routing).
 - **Local artifacts**: WAV captures land at `%TEMP%\voice-stt-*.wav` and are
   deleted by the client after upload. Partial caption state at
   `%LOCALAPPDATA%\voice-stt\partial.txt` is plain text and overwritten each
@@ -166,20 +225,21 @@ are NOT shipping in v0.1:
 
 Active v0.2 design space (not yet implemented):
 
-- **Cloud ASR backend** — make `ASR_BACKEND` switchable between `local`
-  (current vLLM stack) and `cloud` so users without a GPU can run the same
-  client. Candidate providers, all of which support streaming WS so the
-  partial-preview UX is preserved: Aliyun DashScope `qwen3-asr-flash`
-  (Qwen3-ASR cloud, identical prompt format to local 1.7B), Deepgram
-  Nova-3, OpenAI gpt-4o-transcribe.
+- **First-class hosted Whisper providers** — wire `OPENAI_API_KEY` Bearer
+  auth into the batch HTTP path so users without a GPU can target
+  openai.com / Groq / DeepInfra. (A WebSocket OpenAI-compatible streaming
+  provider already shipped in v0.1.1 via `Shift+Alt+E` for self-hosted
+  Whisper endpoints; this v0.2 item is specifically about hosted SaaS
+  Bearer-auth on the batch path.)
+- **Streaming-WS cloud candidates** — Aliyun DashScope `qwen3-asr-flash`
+  (same prompt format as local Qwen3-ASR-1.7B), Deepgram Nova-3, OpenAI
+  `gpt-4o-transcribe`. All support streaming WS so the partial-preview UX
+  carries over.
 - **Zero-CUDA local fallback** — the current vLLM path needs CUDA 13 +
   flashinfer compilation, too heavy for many developers. The transformers
-  backend is already a fallback (~20-50× slower); can be promoted to a
-  first-class "easy install" mode for users who don't need < 1 s final
+  backend already works as a fallback (~20–50× slower); can be promoted to
+  a first-class "easy install" mode for users who don't need <1 s final
   latency.
-- **Strict-correction LLM post-process** — separate from the previously
-  disabled `polish` endpoint; intended to fix ASR homophone errors
-  without rewriting semantics. Runs after final, +0.3-0.8 s.
 
 The codebase still contains placeholders or partial implementations for
 some of these. They're inert at runtime under v0.1 defaults.
