@@ -1,5 +1,13 @@
 # ASR Providers
 
+> **Default path is self-hosted.** voice-stt ships ready to run end-to-end
+> against a local GPU (FunASR Paraformer + Qwen3-ASR-1.7B) — no cloud account
+> required, no audio leaves your network. **The cloud providers below
+> (Volcano / Tencent / 讯飞 / OpenAI-compat) are optional alternatives**, useful
+> if you don't have a GPU or want a no-setup fallback. They are
+> community-maintained: the maintainer's daily driver is self-hosted, so cloud
+> backends are smoke-tested but receive less day-to-day validation.
+
 voice-stt's streaming path supports multiple ASR backends behind one wire
 protocol. The Windows AHK client and the Happy iPhone client both send int16
 PCM frames + `"EOF"` and expect `{type:partial|final}` JSON envelopes back —
@@ -39,7 +47,13 @@ options live in `server/funasr-stream-server.py` and
 `server/sherpa-onnx-stream-server.py` and run on the GPU host (see
 [ARCHITECTURE.md](ARCHITECTURE.md)).
 
-### Volcano 豆包
+> The three cloud sections below (Volcano / Tencent / 讯飞) are **optional**.
+> Skip straight to [Self-hosted](#self-hosted-qwen3-asr--funasr--sherpa-onnx--default-path)
+> if you have a GPU and want the zero-billing default path. A generic
+> OpenAI-compatible Bearer backend is also available; see
+> [Adding a New Provider](#adding-a-new-provider) at the bottom.
+
+### Volcano 豆包 (optional cloud backend)
 
 Recommended as primary cloud backend — generous free tier, works
 cross-border, simplest auth.
@@ -57,7 +71,7 @@ systemctl --user enable --now voice-stt-volcano.service
 Default port: 18093. Free tier: 20 h over 6 months (ASR 2.0 hour-based),
 plus a one-time 40 h signup bonus per the 豆包语音控制台.
 
-### Tencent ASR Realtime
+### Tencent ASR Realtime (optional cloud backend)
 
 **Mainland CN users:** 5 h / month free, recurring. Enable freely.
 
@@ -92,7 +106,7 @@ python server/tools/tencent_get_appid.py
 
 Use **`AppId`** (not Uin or OwnerUin) in tencent.env.
 
-### 讯飞 RTASR
+### 讯飞 RTASR (optional cloud backend)
 
 ```bash
 cat > ~/.config/voice-stt/secrets/xfyun.env <<'EOF'
@@ -113,9 +127,10 @@ creation, paid afterwards.
 `server/tools/provider_smoke.py` before committing to 讯飞 as a backend
 in your client config.
 
-### Self-hosted (Qwen3-ASR / FunASR / sherpa-onnx)
+### Self-hosted (Qwen3-ASR / FunASR / sherpa-onnx) — default path
 
 These don't speak to cloud APIs; they run their own ASR models locally.
+This is the maintainer's daily driver and what the project is tuned for.
 See **[server/README.md](../server/README.md)** for setup. The client
 connects to whatever local or SSH-tunneled port the server listens on
 (`18082` is the canonical FunASR/Qwen3-ASR port).

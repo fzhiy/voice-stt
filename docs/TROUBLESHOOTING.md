@@ -116,6 +116,10 @@ NVIDIA Container Toolkit isn't installed correctly on the host.
 
 ## GPU server side
 
+> **Audience:** you operate the GPU host yourself. End users running voice-stt
+> against a managed/shared server can skip this section — report symptoms to
+> whoever runs the server.
+
 ### `funasr-stream-server.py` crashes on startup
 
 Tail `stream-server.log` (in `$VOICE_STACK_DIR` or `~/voice-stack`):
@@ -190,6 +194,11 @@ Two options:
 ---
 
 ## Cloud ASR providers
+
+> **Audience:** you've enabled an optional cloud backend (Volcano / Tencent /
+> 讯飞 / OpenAI-compat). If you're on the self-hosted default, this section
+> doesn't apply. See [PROVIDERS.md](PROVIDERS.md) for which providers exist
+> and why each is optional.
 
 ### Tencent Cloud: `code=4004 '资源包耗尽，请开通后付费或者购买资源包'`
 

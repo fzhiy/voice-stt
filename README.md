@@ -8,9 +8,10 @@
 
 > **Sub-second voice-to-paste for Windows + WSL.** Push-to-talk dictation
 > with a pluggable ASR backend — run it fully self-hosted (FunASR Paraformer
-> streaming + Qwen3-ASR-1.7B) on a 12 GB consumer GPU, or point it at a
-> cloud provider (火山豆包 / Tencent / 讯飞). Live partial-transcript
-> preview, zero cloud dependency by default.
+> streaming + Qwen3-ASR-1.7B) on a 12 GB consumer GPU. Optional cloud
+> providers (火山豆包 / Tencent / 讯飞 / OpenAI-compat) are available as a
+> no-GPU fallback. Live partial-transcript preview, zero cloud dependency by
+> default.
 
 ```
 Shift+Alt+S  →  hold to dictate, release to paste  (streaming + live preview)
@@ -177,9 +178,11 @@ FP8-capable cards like RTX 4070 Ti) + FunASR Paraformer + optional Whisper
 batch path. A sherpa-onnx CPU path runs with zero GPU. Includes VRAM tuning
 matrix per consumer GPU and CUDA path troubleshooting.
 
-**Cloud.** See **[docs/PROVIDERS.md](docs/PROVIDERS.md)** for the provider
-matrix and per-provider setup recipes (Volcano 火山豆包, Tencent, 讯飞), plus
-cross-border billing caveats. Each provider is one standalone
+**Cloud (optional fallback).** See **[docs/PROVIDERS.md](docs/PROVIDERS.md)**
+for the provider matrix and per-provider setup recipes (Volcano 火山豆包,
+Tencent, 讯飞, OpenAI-compat), plus cross-border billing caveats. These are
+community-maintained alternatives for users without a GPU — the maintainer's
+daily driver is self-hosted. Each provider is one standalone
 `*-stream-server.py` implementing the `ASRProvider` ABC in `server/asr_common.py`
 — adding your own is one file. Switch the active backend at runtime with
 `Shift+Alt+E` (selection persists across restarts).

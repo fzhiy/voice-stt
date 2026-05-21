@@ -1,5 +1,11 @@
 # 部署脚本
 
+> **Maintainer-only / 仅维护者使用。** 普通最终用户无需阅读本目录 —— Windows
+> 客户端的安装走根目录 `install.ps1`/`start.bat`（详见
+> [docs/QUICKSTART.md](../docs/QUICKSTART.md)）。本目录的脚本用于把 `server/`
+> 同步到一台你拥有 SSH 访问权限的 GPU 主机（`~/voice-stack/`），属于自托管
+> 部署的运维工具。若你只是想 dictate 而不打算自建 ASR 服务端，可整目录跳过。
+
 | 脚本 | 作用 | 是否破坏性 |
 |---|---|---|
 | `deploy-server.sh` | rsync `server/` → 远端 GPU 主机的 `~/voice-stack/`，可选启动容器 | 仅作用于 `~/voice-stack/` |
