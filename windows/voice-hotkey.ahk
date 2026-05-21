@@ -63,18 +63,20 @@ if !DirExist(voiceSttDir)
     DirCreate(voiceSttDir)
 
 ; ──── ASR backend selection (Shift+Alt+E to cycle) ────
-; Data-driven: add a new backend = one URL_MAP entry + one CYCLE entry.
+; Data-driven: add a new backend = one URL_MAP + one DISPLAY + one CYCLE entry.
 ; Both backends speak the same WS protocol (int16 PCM frames + "EOF" → JSON).
 g_BackendFile   := voiceSttDir . "\backend.txt"
 g_BackendUrlMap := Map(
-    "volcano", "ws://127.0.0.1:18093/",   ; WSL2 local volcano-stream-server (云 Doubao ASR 2.0 proxy)
-    "qwen3",   "ws://127.0.0.1:18082/",   ; SSH tunnel → GPU host funasr-stream-server (Qwen3-ASR 1.7B)
+    "volcano",       "ws://127.0.0.1:18093/",   ; WSL2 local volcano-stream-server (云 Doubao ASR 2.0 proxy)
+    "qwen3",         "ws://127.0.0.1:18082/",   ; SSH tunnel → GPU host funasr-stream-server (Qwen3-ASR 1.7B)
+    "openai-compat", "ws://127.0.0.1:18096/",   ; local openai-compat-stream-server (Whisper API / Groq / self-hosted)
 )
 g_BackendDisplay := Map(
-    "volcano", "火山豆包",
-    "qwen3",   "Qwen3-ASR",
+    "volcano",       "火山豆包",
+    "qwen3",         "Qwen3-ASR",
+    "openai-compat", "OpenAI-compat",
 )
-g_BackendCycle := ["volcano", "qwen3"]    ; cycle order; append new backends to extend
+g_BackendCycle := ["volcano", "qwen3", "openai-compat"]    ; cycle order; append new backends to extend
 g_CurrentBackend := LoadBackend()
 UpdateBackendTrayTip()
 

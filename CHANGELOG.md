@@ -26,6 +26,11 @@ Versioning follows [Semantic Versioning](https://semver.org/) (pre-1.0; breaking
   - `tencent_sentence_probe.py` — A/B probe (HTTP works ≠ WS works)
 - Gateway post-process mode `strict_correction` — fixes ASR errors
   (homophones, technical terms) without removing fillers or rewriting tone.
+- OpenAI-compatible Bearer ASR backend (`server/openai-compat-stream-server.py`)
+  — a new ASRProvider for any Whisper-compatible HTTP endpoint
+  (openai.com, Groq, self-hosted). Configured via
+  `~/.config/voice-stt/secrets/openai-compat.env` and selected via
+  the new "openai-compat" entry in the AHK Shift+Alt+E backend cycle.
 
 ### Changed
 - Paste flow no longer restores previous clipboard — transcribed text stays

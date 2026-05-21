@@ -195,3 +195,9 @@ distinct reference implementations covering the common upstream protocols.
 The voice-stt protocol layer (PCM frame ingest, `"EOF"` handling, EOF-
 with-no-audio short-circuit, partial/final JSON emission) is entirely
 inside `serve()` — you don't need to reimplement any of it.
+
+For an **HTTP-based** upstream (no WS streaming, batch-style POST per
+utterance), see `server/openai-compat-stream-server.py`. It buffers PCM in
+`send_audio`, packages the buffer as a WAV in `end_audio`, and POSTs a
+multipart/form-data request with `Authorization: Bearer ...`, then emits
+exactly one `final` event.
