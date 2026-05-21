@@ -89,17 +89,31 @@ def log(*a):
 
 
 def load_hotwords(path: str) -> str:
-    """从 YAML 拉所有分类的词扁平化成空格分隔字符串。Paraformer hotword 用。"""
+    """从 YAML 读取 Paraformer hotword 列表，返回空格分隔字符串。
+
+    读取策略（三级 fallback，保证新旧 yaml 部署窗口安全）：
+      1. 优先读 paraformer_hotwords（split yaml 新 key，仅含中文词）
+      2. 若无 paraformer_hotwords → 回落到 chinese_tech（legacy key）
+      3. 若两者均不存在 → 回落到全部 list 段（完全 legacy 行为）
+    英文词不注入 Paraformer：FunASR #1616 确认 Paraformer-zh 对英文 hotword 无效。
+    """
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
+        # 1. split yaml: paraformer_hotwords 存在且非空 list → 直接用
+        para = data.get("paraformer_hotwords")
+        if isinstance(para, list) and para:
+            return " ".join(str(w) for w in para)
+        # 2. legacy key chinese_tech 存在且非空 → 用它
+        chinese = data.get("chinese_tech")
+        if isinstance(chinese, list) and chinese:
+            return " ".join(str(w) for w in chinese)
+        # 3. 完全 legacy：扁平化全部 list 段
         words = []
-        for cat, items in data.items():
+        for items in data.values():
             if isinstance(items, list):
                 words.extend(items)
-        # Paraformer hotword 期望空格分隔；多词术语用下划线连接更稳
-        # 但其实 hotword 支持多 token 词组直接传，保留原样
-        return " ".join(words)
+        return " ".join(str(w) for w in words)
     except Exception as e:
         log(f"failed to load hotwords from {path}: {e} (fallback empty)")
         return ""
@@ -118,6 +132,11 @@ def load_qwen3_context(path: str) -> str:
       - 删除 category labels ("- ai agent:") — 官方 flatten 全部 terms
       - 删除语言指令 ("输出使用简体中文") — 跟 language 参数重复
       - 保留 "英文原样大小写" — voice-stt 独有但解决真实痛点
+
+    Catch-all union: 迭代 YAML 中每一个顶层 list（不论是 english_context_terms、
+    paraformer_hotwords、user_added、auto_promoted 或 legacy 类别名），做去重
+    保序合并。这样在任何 schema 状态（旧 yaml / 新 yaml / 混合 yaml）下都不漏词，
+    也确保 wsl 脚本 / mini-gateway 写入的动态段自动被纳入。
     """
     try:
         with open(path, "r", encoding="utf-8") as f:

@@ -10,7 +10,17 @@
 #   - 太通用的中文常用词（"知道""然后""所以"）不放，否则白名单变噪音
 #   - 全部用规范写法（驼峰、连字符），不要全小写
 
-ai_agent:
+# english_context_terms: Qwen3-ASR transcribe(context=...) 读取。
+# 包含全部英文技术词汇（ai_agent + cs_research + software_engineering +
+# english_tech_general + user_added 的并集）。
+# Qwen3 用作 catch-all union——保证任何 schema 版本（legacy / split / mixed）
+# 都不会丢词。
+# 注意：此 key 必须排在 paraformer_hotwords 之前，以保证云端供应商
+# （Volcano 等）first-100 英文优先的顺序不变（FunASR asr_common 按顺序截取）。
+# 命名说明：key 名使用纯 [a-z_] 字符，以便 asr_common.load_hotwords_terms
+# 的文本解析器（regex ^[a-z_]+:\s*$）能识别此节，维持 Volcano first-100 英文优先。
+english_context_terms:
+  # ── ai_agent ────────────────────────────────────────────
   # ML / DL 基础
   - transformer
   - attention
@@ -195,7 +205,7 @@ ai_agent:
   - self-improving agent
   - recursive self-improvement
 
-cs_research:
+  # ── cs_research ─────────────────────────────────────────
   - arxiv
   - abstract
   - related work
@@ -319,7 +329,7 @@ cs_research:
   - LifelongAgentBench
   - SkillLearnBench
 
-software_engineering:
+  # ── software_engineering ────────────────────────────────
   # Languages / frameworks
   - Python
   - TypeScript
@@ -418,7 +428,6 @@ software_engineering:
   - AutoHotkey
   - PowerShell
   - WSL
-  - WebSocket
   - PCM
   - mini-gateway
   - hotkey
@@ -455,7 +464,112 @@ software_engineering:
   - MI300X
   - RTX 5090
 
-chinese_tech:
+  # ── english_tech_general ────────────────────────────────
+  # 纯英文 dev/CLI 高频词，不属于产品名/框架名但同样需要 boost
+  # （否则 Qwen3 会音译，比如 "final" -> "白脑"）
+  # Git / VCS
+  - commit
+  - merge
+  - push
+  - pull
+  - branch
+  - checkout
+  - stash
+  - revert
+  - amend
+  - origin
+  - upstream
+  - main
+  - master
+  - HEAD
+  # Build / lifecycle
+  - build
+  - install
+  - update
+  - upgrade
+  - run
+  - start
+  - stop
+  - restart
+  - reload
+  - kill
+  - init
+  - setup
+  - config
+  - deploy
+  # Test / quality
+  - test
+  - check
+  - trace
+  - log
+  - error
+  - warning
+  - info
+  - fail
+  - pass
+  - skip
+  - assert
+  - expect
+  # General programming
+  # null/true/false 是 YAML 保留字，必须引号，否则 PyYAML 解析成 Python None/bool
+  - final
+  - default
+  - "null"
+  - "none"
+  - "true"
+  - "false"
+  - return
+  - throw
+  - try
+  - catch
+  - finally
+  - public
+  - private
+  - static
+  - const
+  - var
+  - let
+
+  # ── user_added ──────────────────────────────────────────
+  - "API"
+  - "pane"
+  - "fork"
+  - "repo"
+  - "Deck"
+  - "TMUX"
+  - "Teammate"
+  - "Mac"
+  - "ASR"
+  - "ElevenLabs"
+  - "Blink"
+  - "SSH"
+  - "iOS"
+  - "PWA"
+  - "Happy"
+  - "Type for me"
+  - "iPhone"
+  - "ttyd"
+  - "VPS"
+  - "worktree"
+  - "Tailscale"
+  - "Browser Use"
+  - "current session"
+  - "lead agent"
+  - "HappyCoder"
+  - "Max Effort"
+  - "Extra High Effort"
+  - "Continual Learning"
+  - "Self Evolving"
+  - "Apple DIY"
+  - "Qwen3"
+  - "Qwen3-ASR"
+  # 用户通过 /add-hotword 添加的术语（人审已通过的高精度信号，跟 LLM 候选学习路径独立）
+
+# paraformer_hotwords: Paraformer-zh-streaming hotword 参数专用。
+# 仅包含中文术语（chinese_tech 节内容）。
+# 英文词不放此处——FunASR Paraformer 对英文 hotword 无效
+# （参见 FunASR issue #1616：英文词在 Paraformer Chinese 模型中 boost 失效）。
+paraformer_hotwords:
   # 通用工程
   - 流式
   - 异步
@@ -565,112 +679,6 @@ chinese_tech:
   - 智能体技能习得
   - 持续智能体学习
   - 离线强化学习
-
-english_tech_general:
-  # 纯英文 dev/CLI 高频词，不属于产品名/框架名但同样需要 boost
-  # （否则 Qwen3 会音译，比如 "final" -> "白脑"）
-  # Git / VCS
-  - commit
-  - merge
-  - rebase
-  - push
-  - pull
-  - branch
-  - checkout
-  - cherry-pick
-  - stash
-  - revert
-  - amend
-  - origin
-  - upstream
-  - main
-  - master
-  - HEAD
-  # Build / lifecycle
-  - build
-  - install
-  - update
-  - upgrade
-  - run
-  - start
-  - stop
-  - restart
-  - reload
-  - kill
-  - init
-  - setup
-  - config
-  - deploy
-  # Test / quality
-  - test
-  - check
-  - debug
-  - trace
-  - log
-  - error
-  - warning
-  - info
-  - fail
-  - pass
-  - skip
-  - mock
-  - assert
-  - expect
-  # General programming
-  # null/true/false 是 YAML 保留字，必须引号，否则 PyYAML 解析成 Python None/bool
-  - final
-  - default
-  - "null"
-  - "none"
-  - "true"
-  - "false"
-  - return
-  - throw
-  - try
-  - catch
-  - finally
-  - public
-  - private
-  - static
-  - const
-  - var
-  - let
-
-user_added:
-  - "API"
-  - "pane"
-  - "fork"
-  - "repo"
-  - "Deck"
-  - "TMUX"
-  - "Teammate"
-  - "Mac"
-  - "ASR"
-  - "ElevenLabs"
-  - "Blink"
-  - "SSH"
-  - "iOS"
-  - "PWA"
-  - "Happy"
-  - "Type for me"
-  - "iPhone"
-  - "ttyd"
-  - "VPS"
-  - "worktree"
-  - "Tailscale"
-  - "Browser Use"
-  - "subagent"
-  - "current session"
-  - "lead agent"
-  - "HappyCoder"
-  - "Max Effort"
-  - "Extra High Effort"
-  - "Continual Learning"
-  - "Self Evolving"
-  - "Apple DIY"
-  - "Qwen3"
-  - "Qwen3-ASR"
-  # 用户通过 /add-hotword 添加的术语（人审已通过的高精度信号，跟 LLM 候选学习路径独立）
 
 # Snippets: 文本里出现 key 自动展开成 value (词边界 \b + case-insensitive).
 # 例如说话"my email"被 ASR 转成 "my-email", 经 snippet 展开成真邮箱.
