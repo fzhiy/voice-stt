@@ -18,9 +18,8 @@ This guide takes you from nothing to your first successful push-to-talk dictatio
 
 ## Step 1 — Install
 
-Download the [latest release ZIP](../../releases/latest) (`voice-stt.zip` —
-link resolves to GitHub Releases; available after the first release is published)
-and extract anywhere on your machine. Two entry points sit at the extraction root:
+Download the [latest release ZIP](https://github.com/fzhiy/voice-stt/releases/latest)
+(`voice-stt.zip`) and extract anywhere on your machine. Two entry points sit at the extraction root:
 
 **Installed mode** (autostart on login):
 
