@@ -25,16 +25,18 @@ QWEN3_VLLM_QUANTIZATION = os.environ.get("QWEN3_VLLM_QUANTIZATION", "").strip() 
 # Optional CPU offload (in GB). Trades latency for GPU memory by keeping N GB of
 # weights on CPU and swapping to GPU on demand. Use only if quantization can't be applied.
 QWEN3_VLLM_CPU_OFFLOAD_GB = float(os.environ.get("QWEN3_VLLM_CPU_OFFLOAD_GB", "0") or "0")
-# Language tag passed to Qwen3-ASR per inference. Default "Chinese" hard-locks the
-# decoder, suppressing English-token emission — chosen on 2026-05-15 to dodge an
-# EOS-truncation bug observed on long mixed-language audio with language=None.
-# The cost is over-Sinicization of English technical terms ("subagent" -> "子线索",
-# "Sonnet" -> "sonic"). Three flavors of "self-detect" — "auto", "none", "" — all
-# map to Python None at the call site (qwen_asr's self-detect mode). Note that
-# qwen_asr REJECTS the literal string "auto" with "Unsupported language"; only
-# specific names (Chinese, English, Cantonese, …) or None are accepted. A/B test
-# on representative audio before flipping — the EOS-truncation bug may still bite.
-QWEN3_LANGUAGE = os.environ.get("QWEN3_LANGUAGE", "Chinese").strip()
+# Language tag passed to Qwen3-ASR per inference. Default "none" passes Python
+# None — qwen_asr's self-detect mode (the model picks the language(s) itself).
+# Verified 2026-05-21 as the best option for mixed Chinese-English dictation: no
+# EOS truncation on a 63s utterance, ~87% English-term preservation vs near-total
+# over-Sinicization ("Sonnet"->"少量的", "subagent"->"沙威酱") under a hard lock.
+# Pass a specific language name to hard-lock the decoder instead — set
+# QWEN3_LANGUAGE=Chinese if you hit the EOS-truncation bug some older qwen_asr
+# versions showed with self-detect on long mixed audio (the 2026-05-15 reason the
+# lock existed; no longer reproduces on the current vLLM/FP8 stack). Empty and
+# "none" both map to None. Do NOT pass "auto" — qwen_asr rejects that literal
+# string with "Unsupported language" (it is not a valid Qwen3-ASR value).
+QWEN3_LANGUAGE = os.environ.get("QWEN3_LANGUAGE", "none").strip()
 # Max new tokens per Qwen3-ASR inference. Bumped from the historical 512 to 4096
 # (matches the qwen_asr package's own demo defaults). Higher value is safe with
 # vLLM — it allocates KV cache per actual emission, not the cap.
@@ -154,15 +156,12 @@ class Qwen3ASRBackend(FinalPassBackend):
                     _log(f"  qwen3-asr skip: trimmed to {arr.size/sample_rate:.2f}s, rms min/p50/max={rms_stats[0]:.4f}/{rms_stats[1]:.4f}/{rms_stats[2]:.4f}")
                 return ("", "")
             t = time.time()
-            # Language arg is configurable via QWEN3_LANGUAGE env var (see module
-            # top). Default "Chinese" hard-locks. "auto" / "none" / "" all map to
-            # Python None — qwen_asr's self-detect mode (the legacy behavior that
-            # was switched off on 2026-05-15 due to EOS-truncation on long mixed
-            # audio; re-enable to A/B test against the current vLLM/FP8 stack).
-            # NOTE: qwen_asr rejects the string "auto" with "Unsupported language";
-            # supported values are specific language names (Chinese, English,
-            # Cantonese, …) or Python None for self-detect.
-            lang_arg = QWEN3_LANGUAGE if QWEN3_LANGUAGE.lower() not in ("", "none", "auto") else None
+            # QWEN3_LANGUAGE (module top): "none"/"" -> Python None (self-detect,
+            # the default); a specific name ("Chinese", "English", …) hard-locks
+            # the decoder. "auto" is intentionally NOT mapped — qwen_asr rejects
+            # that literal string with "Unsupported language", so a stale config
+            # that sets it will (correctly) fail loud rather than silently degrade.
+            lang_arg = QWEN3_LANGUAGE if QWEN3_LANGUAGE.lower() not in ("", "none") else None
             results = self._model.transcribe(
                 audio=(arr, sample_rate),
                 context=self._context,
