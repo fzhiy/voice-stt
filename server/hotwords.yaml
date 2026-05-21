@@ -428,7 +428,7 @@ user_added:
   - "current session"
   - "lead agent"
   - "HappyCoder"
-  - "scribble"
+  - "Scriptable"
   - "Max Effort"
   - "Extra High Effort"
   - "Continual Learning"
@@ -463,3 +463,6 @@ mappings:
   "撒贝 agent": "subagent"
   "四大杯间的": "subagent"
   "四大杯间": "subagent"
+  # Scriptable (iOS widget/scripting app) — Qwen3-ASR has heard it as "scribble"
+  # (Apple Pencil handwriting feature) when language="Chinese" is locked.
+  "scribble": "Scriptable"
