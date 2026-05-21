@@ -65,3 +65,38 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+---
+
+# Project-specific rules (voice-stt)
+
+Added 2026-05-21. Calibrated against the Karpathy guidelines above (general behavior); this section adds project-specific operational rules. Private operational rules (host details, credentials, internal workflow) live in gitignored skill/agent files under `.claude/`, not here.
+
+## 5. Git in worktrees: use `git -C <abs-path>`, not `cd <path> && git`
+
+The Bash shell's cwd can shift unexpectedly between turns when subagents or MCP tools (Codex with `cwd:` parameter) run inside a worktree. The failure mode: a `git cherry-pick` runs on the wrong branch because the shell cwd had drifted into the worktree.
+
+- Prefer `git -C /abs/path/to/repo cherry-pick <sha>` over `cd repo && git cherry-pick <sha>`.
+- When you must combine, chain on a single Bash call (`cd <path> && git ...`) — but `git -C` is still cleaner.
+
+## 6. For multi-surface tasks, prefer the agent-team Skill if installed
+
+For tasks touching ≥3 files OR crossing client/server/docs surfaces, prefer invoking the `agent-team` Skill (when `.claude/skills/agent-team/` is present in this repo) over direct `mcp__codex__codex` calls. The Skill encodes calibrated rules (review-round caps, structured findings templates, worker isolation) that direct calls bypass. For ≤2-file local edits, direct Codex calls are fine.
+
+The Skill files in `.claude/skills/` are gitignored by default — install them locally if you want this workflow; the repo functions without them.
+
+## 7. Commit message prefixes (Conventional Commits with scopes)
+
+- `feat(<scope>):` — new user-facing feature (e.g. `feat(asr):`, `feat(gateway):`, `feat(client):`)
+- `fix(<scope>):` — bug fix
+- `chore:` / `docs:` / `test:` / `refactor:` — supporting work
+- `Phase B:` — Lead direct edits during agent-team protocol Round 2+ (reserved for the agent-team Skill workflow; never used by worker commits)
+
+## 8. Worktree cleanup discipline
+
+After cherry-picking a worktree's commit into main, in the same response sequence:
+1. `git worktree remove <path> --force`
+2. `git branch -D <worktree-branch>`
+3. `git worktree list` to confirm
+
+Stale worktrees from prior sessions visible in `.claude/worktrees/` (if that dir exists) are a sign of cleanup not happening — delete them when noticed.
