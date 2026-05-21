@@ -13,6 +13,10 @@ enough — you don't need to change anything.
 | `Shift+Alt+V` | Batch push-to-talk (WAV → Whisper-compatible gateway) |
 | `Shift+Alt+P` | Read selected text aloud (SAPI TTS) |
 
+All four dictation hotkeys write a local recovery record to
+`%LOCALAPPDATA%\voice-stt\transcripts\YYYY-MM.jsonl`. Records are local-only
+and never uploaded — see [History & privacy](#history--privacy) below.
+
 ## Remapping a hotkey
 
 Bindings are AutoHotkey v2 hotkey labels near the top of
@@ -75,3 +79,20 @@ options). Binding each mode to its own hotkey (e.g. `Shift+Alt+1/2/3`) is
 point: add a hotkey label in `voice-hotkey.ahk` that triggers the batch flow
 with the desired mode. (A first-class per-mode-hotkey feature may land in a
 future release.)
+
+---
+
+## History & privacy
+
+All four dictation hotkeys write a recovery record to
+`%LOCALAPPDATA%\voice-stt\transcripts\YYYY-MM.jsonl`. This file is:
+
+- **Local-only** — never sent to the server or any remote endpoint.
+- **Month-rotating** — a new file starts on the first of each month.
+- **User-controlled** — delete any file at any time; the app continues working.
+
+The streaming server (`funasr-stream-server.py`) has its own optional
+server-side history (`HISTORY_ENABLED`, defaults on). When the client sets
+`?persist_history=0` on the WebSocket URL (default for `voice-ptt-stream-ws.ps1`),
+the server skips its append. Self-hosted deployments may disable server-side
+history entirely with `HISTORY_ENABLED=0`.

@@ -61,6 +61,20 @@ they run on any machine without a GPU or the FunASR/Qwen3 stack installed.
 - AutoHotkey v2: match the existing style in `windows/voice-hotkey.ahk`.
 - New source files must carry `# SPDX-License-Identifier: MIT` at the top.
 
+## Privacy
+
+Transcript data written by the client (recovery JSONL) is local-only and must
+never be sent to a remote endpoint by default. Server-side history is
+opt-in per connection via `?persist_history=1`; the default is off for
+client-initiated connections. Any contribution that adds a new data-collection
+path must document the data destination, retention policy, and opt-out
+mechanism in the PR description.
+
+Any new server-side call site that writes transcript text (beyond
+`_history_append`) MUST be gated with `should_persist_for(websocket)`. This
+keeps the "user-facing transcript history is local-only by default" claim
+honest as new telemetry/research code is added. Lead enforces in PR review.
+
 ---
 
 ## Security issues

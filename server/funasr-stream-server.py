@@ -62,8 +62,6 @@ HISTORY_DIR = Path(os.environ.get(
 
 def _history_append(rec: dict) -> None:
     """Append one transcription record to monthly JSONL. 静默失败 (不破坏 server)."""
-    if not HISTORY_ENABLED:
-        return
     try:
         HISTORY_DIR.mkdir(parents=True, exist_ok=True)
         month_file = HISTORY_DIR / f"{time.strftime('%Y-%m')}.jsonl"
@@ -71,6 +69,29 @@ def _history_append(rec: dict) -> None:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     except Exception as e:
         log(f"  history append failed: {e}")
+
+
+def should_persist_for(websocket) -> bool:
+    """Per-connection persistence decision: URL query `persist_history` overrides env.
+
+    Priority:
+      1. ?persist_history=1/true/yes  → True
+      2. ?persist_history=0/false/no  → False  (empty value also → False)
+      3. key absent                   → HISTORY_ENABLED env fallback
+    Narrow exception: websockets API drift (AttributeError/TypeError) falls back to env.
+    """
+    try:
+        from urllib.parse import urlparse, parse_qs
+        path = websocket.request.path
+        q = parse_qs(urlparse(path).query, keep_blank_values=True)
+        if 'persist_history' in q:
+            v = q['persist_history'][-1].strip().lower()
+            return v in ('1', 'true', 'yes')
+    except (AttributeError, TypeError) as e:
+        log(f"  should_persist_for: websocket.request.path unavailable ({e}); fallback to env")
+    return HISTORY_ENABLED
+
+
 # 最终结果送 mini-gateway polish（拿标点+术语+自纠错+简体）。
 # 设为空串关闭这步。
 POLISH_URL = os.environ.get("POLISH_URL", "http://127.0.0.1:9080/v1/text/polish")
@@ -542,7 +563,8 @@ async def handle(websocket):
     并发安全：paraformer 跟 Qwen3 send 都走 send_lock，避免 JSON 帧交叉
     """
     addr = websocket.remote_address
-    log(f"+ client {addr}")
+    persist = should_persist_for(websocket)
+    log(f"+ client {addr} persist_history={persist}")
     cache = streaming_backend.new_session_state()
     accumulated = ""         # paraformer 流式累积的 raw 文本
     pcm_buffer = bytearray() # 全程 PCM 缓冲，给 Qwen3-ASR 跑 final
@@ -875,7 +897,8 @@ async def handle(websocket):
         history_rec["paraformer_raw"] = accumulated
         history_rec["qwen3_backend"] = final_backend.engine_actual if final_backend else None
         history_rec["partial_inference_total_s"] = round(history_rec["partial_inference_total_s"], 2)
-        _history_append(history_rec)
+        if persist:
+            _history_append(history_rec)
 
 
 async def main():

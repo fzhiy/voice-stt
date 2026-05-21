@@ -135,6 +135,15 @@ Add-Type -AssemblyName System.Net.WebSockets 2>$null  # PS 5.1 might need
 $ws = New-Object System.Net.WebSockets.ClientWebSocket
 $ct = (New-Object System.Threading.CancellationTokenSource 10000).Token
 try {
+# Opt-out of server-side history (client manages local jsonl)
+if ($WsUrl -notmatch '[?&]persist_history=') {
+    $frag = ($WsUrl -split '#', 2)
+    $base = $frag[0]
+    $sep = if ($base -match '\?') { '&' } else { '?' }
+    $WsUrl = $base + $sep + 'persist_history=0' + $(if ($frag.Count -gt 1) { '#' + $frag[1] } else { '' })
+} else {
+    Trace-Log "persist_history already in WsUrl; skipping opt-out append"
+}
     $ws.ConnectAsync([Uri]$WsUrl, $ct).GetAwaiter().GetResult()
     Trace-Log "ws connected, state=$($ws.State)"
 } catch {

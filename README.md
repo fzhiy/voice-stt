@@ -145,8 +145,8 @@ record to:
 %LOCALAPPDATA%\voice-stt\transcripts\YYYY-MM.jsonl
 ```
 
-Local-only, never uploaded. Month-rotating. Use `wsl/transcript-grep.sh` to
-search:
+Local-only, never uploaded. Month-rotating. All four dictation hotkeys write
+to this file. Use `wsl/transcript-grep.sh` to search:
 
 ```bash
 ./wsl/transcript-grep.sh --since 1h --grep "embedding"

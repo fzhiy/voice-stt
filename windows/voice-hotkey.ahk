@@ -357,6 +357,7 @@ DoVoiceInput(duration)
 
     ; 记下热键按下瞬间的焦点窗口；粘贴时强制激活它
     target_hwnd := WinExist("A")
+    tick := A_TickCount
     TrayTip "录音中", duration " 秒，对着麦说话...", 1
 
     wslOutPath := WinTempToWslPath(WIN_TMP_FILE)
@@ -372,6 +373,7 @@ DoVoiceInput(duration)
 
     if !FileExist(WIN_TMP_FILE) {
         errMsg := FileExist(WIN_ERR_FILE) ? FileRead(WIN_ERR_FILE, "UTF-8") : "WSL 没生成 stdout 文件"
+        WriteRecoveryRecord("", tick, target_hwnd, release_hwnd, 0, "no_out")
         TrayTip "录音失败", SubStr(errMsg, 1, 200), 3
         ; 同时打开 err 文件给用户看
         if FileExist(WIN_ERR_FILE)
@@ -385,6 +387,7 @@ DoVoiceInput(duration)
 
     if text = "" {
         errMsg := FileExist(WIN_ERR_FILE) ? FileRead(WIN_ERR_FILE, "UTF-8") : "stdout 文件为空"
+        WriteRecoveryRecord("", tick, target_hwnd, release_hwnd, 0, "empty")
         TrayTip "转写为空", SubStr(errMsg, 1, 200), 3
         if FileExist(WIN_ERR_FILE)
             Run "notepad.exe " WIN_ERR_FILE
@@ -395,6 +398,7 @@ DoVoiceInput(duration)
         FileDelete WIN_ERR_FILE
 
     used_hwnd := PasteText(text, release_hwnd, target_hwnd)
+    WriteRecoveryRecord(text, tick, target_hwnd, release_hwnd, used_hwnd, "ok")
     TrayTip "已粘贴 → " GetWindowTitle(used_hwnd), text, 1
 }
 
@@ -402,12 +406,13 @@ DoVoiceInput(duration)
 ; 跟 PTT 同样的后端流程，只是不靠 KeyWait，靠状态机
 DoVoiceToggle()
 {
-    global g_TogglingRecording, g_ToggleSig, g_ToggleWav, g_ToggleOut, g_ToggleErr, g_TogglePid, g_ToggleHwnd, PTT_PS_SCRIPT
+    global g_TogglingRecording, g_ToggleSig, g_ToggleWav, g_ToggleOut, g_ToggleErr, g_TogglePid, g_ToggleHwnd, g_ToggleTick, PTT_PS_SCRIPT
 
     if !g_TogglingRecording {
         ; ===== 开始录音 =====
         g_ToggleHwnd := WinExist("A")   ; 记下用户当前在哪
         tick := A_TickCount
+        g_ToggleTick := tick
         g_ToggleSig := A_Temp "\voice-tog-" tick ".signal"
         g_ToggleWav := A_Temp "\voice-tog-" tick ".wav"
         g_ToggleOut := A_Temp "\voice-tog-" tick ".txt"
@@ -452,12 +457,14 @@ DoVoiceToggle()
         TrayTip "Toggle 失败", reason "`nstderr: " errText, 5
         if FileExist(g_ToggleErr)
             Run "notepad.exe " g_ToggleErr
+        WriteRecoveryRecord("", g_ToggleTick, g_ToggleHwnd, release_hwnd, 0, "no_out")
         return
     }
 
     text := Trim(FileRead(g_ToggleOut, "UTF-8"), " `t`r`n")
 
     if text = "" {
+        WriteRecoveryRecord("", g_ToggleTick, g_ToggleHwnd, release_hwnd, 0, "empty")
         for f in [g_ToggleOut, g_ToggleSig, g_ToggleErr]
             SafeFileDelete f
         TrayTip "转写为空", "无声音或太短", 3
@@ -465,6 +472,7 @@ DoVoiceToggle()
     }
 
     used_hwnd := PasteText(text, release_hwnd, g_ToggleHwnd)
+    WriteRecoveryRecord(text, g_ToggleTick, g_ToggleHwnd, release_hwnd, used_hwnd, "ok")
     TrayTip "已粘贴 → " GetWindowTitle(used_hwnd), text, 1
     for f in [g_ToggleOut, g_ToggleSig, g_ToggleErr]
         SafeFileDelete f
@@ -721,6 +729,7 @@ DoVoicePTT()
             FileAppend Format("[{1}] FAILED: {2}`n--- stderr ---`n{3}`n", FormatTime(, "HH:mm:ss"), diag, errText), dbg
         } catch {
         }
+        WriteRecoveryRecord("", tick, target_hwnd, release_hwnd, 0, "no_out")
         TrayTip "PTT 失败", diag "`nstderr: " SubStr(errText, 1, 150), 5
         if FileExist(err)
             Run "notepad.exe " err
@@ -732,11 +741,13 @@ DoVoicePTT()
     if text = "" {
         for f in [out, sig, err]
             SafeFileDelete f
+        WriteRecoveryRecord("", tick, target_hwnd, release_hwnd, 0, "empty")
         TrayTip "转写为空", "按得太短或无声音", 3
         return
     }
 
     used_hwnd := PasteText(text, release_hwnd, target_hwnd)
+    WriteRecoveryRecord(text, tick, target_hwnd, release_hwnd, used_hwnd, "ok")
     TrayTip "已粘贴 → " GetWindowTitle(used_hwnd), text, 1
     for f in [out, sig, err]
         SafeFileDelete f

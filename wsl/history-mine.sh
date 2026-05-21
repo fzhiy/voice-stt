@@ -17,8 +17,10 @@
 #   - NOT already in server/hotwords.yaml (any category)
 #   - Ranked by frequency + multi-day coverage (>=2 distinct dates preferred)
 #
-# To test connectivity manually:
-#   ssh <GPU_USER>@<GPU_HOST> "ls ~/voice-stack/history/"
+# Data source (local-first):
+#   1. LOCAL_HISTORY_DIR — defaults to Windows AppData path via WIN_USER discovery
+#   2. Remote SSH fallback (REMOTE_HOST / GPU_USER+GPU_HOST) if local is empty
+#   Only `promote` requires REMOTE_HOST (for hotword.sh deploy).
 #
 # REMOTE_HOST / REMOTE_DIR can be overridden via env vars (same as hotword.sh).
 
@@ -27,16 +29,35 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 YAML="${REPO_ROOT}/server/hotwords.yaml"
-if [[ -z "${REMOTE_HOST:-}" ]]; then
-    if [[ -n "${GPU_USER:-}" && -n "${GPU_HOST:-}" ]]; then
-        REMOTE_HOST="${GPU_USER}@${GPU_HOST}"
-    else
-        echo "ERROR: set REMOTE_HOST or both GPU_USER and GPU_HOST in .env / shell env" >&2
-        exit 1
-    fi
-fi
 REMOTE_DIR="${REMOTE_DIR:-voice-stack}"  # relative to remote $HOME
 HISTORY_DIR="${REMOTE_DIR}/history"
+
+# Local history dir: Windows AppData\Local\voice-stt\transcripts (accessed via /mnt/c)
+if [[ -z "${LOCAL_HISTORY_DIR:-}" ]]; then
+    WIN_USER="${WIN_USER:-$(cmd.exe /c echo %USERNAME% 2>/dev/null | tr -d '\r\n' || echo "")}"
+    LOCAL_HISTORY_DIR="/mnt/c/Users/${WIN_USER}/AppData/Local/voice-stt/transcripts"
+fi
+
+# _fetch_history: cat all history jsonl files; local + remote (both, not either-or)
+_fetch_history() {
+    local out="" remote=""
+    # Local path
+    if [[ -d "$LOCAL_HISTORY_DIR" ]] && ls "${LOCAL_HISTORY_DIR}"/*.jsonl &>/dev/null 2>&1; then
+        out="$(cat "${LOCAL_HISTORY_DIR}"/*.jsonl 2>/dev/null || true)"
+    fi
+    # SSH (optional; silent if REMOTE_HOST not set)
+    if [[ -n "${REMOTE_HOST:-}" ]]; then
+        remote="$(ssh "$REMOTE_HOST" \
+            "ls ${HISTORY_DIR}/*.jsonl 2>/dev/null | xargs cat 2>/dev/null" \
+            2>/dev/null || true)"
+    elif [[ -n "${GPU_USER:-}" && -n "${GPU_HOST:-}" ]]; then
+        REMOTE_HOST="${GPU_USER}@${GPU_HOST}"
+        remote="$(ssh "$REMOTE_HOST" \
+            "ls ${HISTORY_DIR}/*.jsonl 2>/dev/null | xargs cat 2>/dev/null" \
+            2>/dev/null || true)"
+    fi
+    printf '%s\n%s' "$out" "$remote"
+}
 
 # Parse flags before subcommand
 AUTO_PROMOTE_CONFIDENT=0
@@ -56,9 +77,7 @@ case "$SUB" in
     raw)
         N="${2:-20}"
         # Fetch and print last N lines across all history jsonl files, newest first
-        ssh "$REMOTE_HOST" \
-            "ls -t ${HISTORY_DIR}/*.jsonl 2>/dev/null | head -3 | xargs -I{} tail -n ${N} {}" \
-            2>/dev/null | tail -n "$N"
+        _fetch_history | tail -n "$N"
         exit 0
         ;;
     promote)
@@ -66,6 +85,15 @@ case "$SUB" in
         if [[ $# -eq 0 ]]; then
             echo "Usage: $0 promote TERM [TERM ...]" >&2
             exit 1
+        fi
+        # promote requires REMOTE_HOST for hotword.sh deploy
+        if [[ -z "${REMOTE_HOST:-}" ]]; then
+            if [[ -n "${GPU_USER:-}" && -n "${GPU_HOST:-}" ]]; then
+                REMOTE_HOST="${GPU_USER}@${GPU_HOST}"
+            else
+                echo "ERROR: promote requires REMOTE_HOST or both GPU_USER and GPU_HOST" >&2
+                exit 1
+            fi
         fi
         bash "${REPO_ROOT}/wsl/hotword.sh" add "$@"
         exit $?
@@ -82,18 +110,17 @@ esac
 
 # ----- list path -------------------------------------------------------------
 
-# 1) Pull all history/*.jsonl from remote (cat all, not just tail — history is ground truth)
-RAW=$(ssh "$REMOTE_HOST" \
-    "ls ${HISTORY_DIR}/*.jsonl 2>/dev/null | xargs cat 2>/dev/null" \
-    2>/dev/null || true)
+# 1) Pull all history/*.jsonl (local-first, SSH fallback)
+RAW=$(_fetch_history || true)
 
 if [[ -z "$RAW" ]]; then
-    echo "no history jsonl found on ${REMOTE_HOST}:${HISTORY_DIR}" >&2
-    echo "  To check: ssh ${REMOTE_HOST} \"ls ${HISTORY_DIR}/\"" >&2
+    echo "no history jsonl found (checked: ${LOCAL_HISTORY_DIR} and remote)" >&2
+    echo "  Set LOCAL_HISTORY_DIR or REMOTE_HOST to point at *.jsonl files" >&2
     exit 0
 fi
 
-# 2) Extract candidate tokens from `final_text` field (history rec key; falls back to `final`), count freq + days
+# 2) Extract candidate tokens from text fields, count freq + days
+#    Field priority: final_text > text > final (client jsonl uses 'text')
 CANDIDATES=$(printf '%s\n' "$RAW" | python3 -c "
 import sys, json, re
 from collections import defaultdict
@@ -128,11 +155,13 @@ for line in sys.stdin:
         rec = json.loads(line)
     except Exception:
         continue
-    text = rec.get('final_text', '') or rec.get('final', '')
+    # Field compat: server uses 'final_text'; client jsonl uses 'text'; legacy 'final'
+    text = rec.get('final_text', '') or rec.get('text', '') or rec.get('final', '')
     if not text:
         continue
-    # Date: try ts field (ISO), else fallback to today stub
-    ts = rec.get('ts', '') or rec.get('timestamp', '') or ''
+    # Date: try ts_start/ts_end (server schema), ts, timestamp, else fallback
+    ts = (rec.get('ts_start', '') or rec.get('ts_end', '') or
+          rec.get('ts', '') or rec.get('timestamp', '') or '')
     date_key = ts[:10] if len(ts) >= 10 else 'unknown'
 
     tokens = TECH_RE.findall(text)
@@ -166,7 +195,7 @@ for term, count in sorted(freq.items(), key=lambda x: (-len(days[x[0]]), -x[1]))
 ")
 
 if [[ -z "$CANDIDATES" ]]; then
-    echo "no tech-term candidates extracted (history jsonl may have no 'final_text' field)" >&2
+    echo "no tech-term candidates extracted (history jsonl may have no text field)" >&2
     exit 0
 fi
 

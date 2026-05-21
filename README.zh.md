@@ -115,7 +115,7 @@ WSL 助手脚本 (在 `wsl/`):
 %LOCALAPPDATA%\voice-stt\transcripts\YYYY-MM.jsonl
 ```
 
-纯本地, 不上传, 月轮换。用 `wsl/transcript-grep.sh` 搜:
+纯本地, 不上传, 月轮换。四个听写热键均写此文件。用 `wsl/transcript-grep.sh` 搜:
 
 ```bash
 ./wsl/transcript-grep.sh --since 1h --grep "embedding"
