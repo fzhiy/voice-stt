@@ -58,13 +58,16 @@ $INNER_DIR  = 'voice-stt'
 # server-side setup lives in server/README.md instead.
 $DOC_FILES = @(
     'QUICKSTART.md', 'CONFIG.md',
-    'ARCHITECTURE.md', 'TROUBLESHOOTING.md'
+    'ARCHITECTURE.md', 'TROUBLESHOOTING.md',
+    'HOTKEYS.md', 'PROVIDERS.md'
 )
 # Top-level files copied verbatim into bundle root.
 $ROOT_FILES = @(
     'install.ps1', 'install.bat', 'start.bat',
-    'README.md', 'LICENSE', 'CHANGELOG.md',
-    'SECURITY.md', 'CONTRIBUTING.md', '.env.example'
+    'README.md', 'README.zh.md',
+    'LICENSE', 'CHANGELOG.md',
+    'SECURITY.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md',
+    '.env.example'
 )
 
 function Step([string]$msg) { Write-Host "  $msg" -ForegroundColor Cyan }
