@@ -61,8 +61,6 @@ ai_agent:
   - hook
   - skill
   - subagent
-  - routine
-  - widget
   - plan mode
   - slash command
   - marketplace
@@ -99,6 +97,103 @@ ai_agent:
   - Ollama
   - vLLM
   - llama.cpp
+  # ---- Agent stack 扩充 (2026-05 调研) ----
+  # Agent frameworks
+  - LangChain
+  - LangGraph
+  - LangSmith
+  - LlamaIndex
+  - AutoGen
+  - CrewAI
+  - DSPy
+  - smolagents
+  - Pydantic AI
+  - Composio
+  - Goose
+  - Magentic-One
+  # Coding assistants
+  - Aider
+  - Cline
+  - Continue
+  - Devin
+  - Kiro
+  - Windsurf
+  - Augment Code
+  - Zed
+  # Models (2025-2026)
+  - Sonnet
+  - Opus
+  - Haiku
+  - Grok
+  - GLM
+  - Kimi
+  - Doubao
+  - Hunyuan
+  - MiniMax
+  - Step
+  - Baichuan
+  - Mixtral
+  - Gemma
+  - Phi
+  - Llama Scout
+  - Llama Maverick
+  - QwQ
+  - DeepSeek-R1
+  # Research methods / paradigms
+  - Reflexion
+  - Self-Refine
+  - Self-Consistency
+  - Toolformer
+  - Voyager
+  - agentic RL
+  - computer use
+  - extended thinking
+  - test-time compute
+  - inference-time scaling
+  - RLVR
+  - RLAIF
+  - distillation
+  - long-horizon task
+  - multi-agent
+  - MCTS
+  # ---- Foreign LLM 厂商扩充 (2026-05) ----
+  - Cohere
+  - Command-R
+  - Command A
+  - Embed
+  - Rerank
+  - Jamba
+  - OLMo
+  - Molmo
+  - Granite
+  - Nemotron
+  - Reka
+  - Codestral
+  - Magistral
+  - Pixtral
+  - Devstral
+  - Arctic
+  - Falcon
+  - Falcon-Mamba
+  - Mamba
+  # ---- LHA ↔ Continual Learning 交叉 ----
+  - skill library
+  - episodic memory
+  - semantic memory
+  - procedural memory
+  - working memory
+  - memory consolidation
+  - LATS
+  - world model
+  - Alita
+  - Alita-G
+  - EvoTest
+  - agent skill acquisition
+  - continual agent learning
+  - agent fine-tuning
+  - self-improvement loop
+  - self-improving agent
+  - recursive self-improvement
 
 cs_research:
   - arxiv
@@ -158,6 +253,71 @@ cs_research:
   - wandb
   - TensorBoard
   - MLflow
+  # ---- Evals + retrieval 扩充 (2026-05) ----
+  # Agent / coding benchmarks
+  - SWE-bench
+  - SWE-bench Verified
+  - SWE-bench Pro
+  - GAIA
+  - AgentBench
+  - OSWorld
+  - WebArena
+  - BrowserGym
+  - Terminal-Bench
+  - LiveCodeBench
+  - HumanEval
+  - NaturalCodeBench
+  - Tau-bench
+  # Reasoning / general benchmarks
+  - MATH-500
+  - AIME
+  - MMLU
+  - MMLU-Pro
+  - GPQA
+  - ARC-AGI
+  - ARC-AGI-2
+  - FrontierMath
+  - Humanity's Last Exam
+  # Retrieval / RAG variants
+  - GraphRAG
+  - RAFT
+  - HyDE
+  - ColBERT
+  # Vector DBs (research-side)
+  - Milvus
+  - LanceDB
+  # ---- Continual Learning 词汇 (2026-05) ----
+  - catastrophic forgetting
+  - EWC
+  - LwF
+  - Elastic Weight Consolidation
+  - Learning without Forgetting
+  - experience replay
+  - generative replay
+  - lifelong learning
+  - continual pre-training
+  - continual fine-tuning
+  - knowledge editing
+  - ROME
+  - MEMIT
+  - GRACE
+  - class-incremental learning
+  - task-incremental learning
+  - domain-incremental learning
+  - plasticity-stability dilemma
+  - Test-Time Training
+  - Test-Time Adaptation
+  - TTT
+  - TTA
+  - Avalanche
+  - continual reinforcement learning
+  - O-LoRA
+  - TTRL
+  - curriculum learning
+  - model-based RL
+  - offline RL
+  - LifelongAgentBench
+  - SkillLearnBench
 
 software_engineering:
   # Languages / frameworks
@@ -263,6 +423,37 @@ software_engineering:
   - mini-gateway
   - hotkey
   - PTT
+  # ---- LLM 服务/可观测/GPU 扩充 (2026-05) ----
+  # LLM serving / runtime
+  - SGLang
+  - TGI
+  - TensorRT-LLM
+  - MLC LLM
+  - NVIDIA NIM
+  # Eval / observability
+  - Langfuse
+  - Braintrust
+  - Helicone
+  - Weave
+  - Phoenix
+  - Galileo
+  - Inspect
+  # GitOps / infra
+  - ArgoCD
+  - Helm
+  - Skaffold
+  - Bazel
+  - Nginx
+  - ngrok
+  # GPUs (NVIDIA / AMD)
+  - H100
+  - H200
+  - B100
+  - B200
+  - A100
+  - GH200
+  - MI300X
+  - RTX 5090
 
 chinese_tech:
   # 通用工程
@@ -330,6 +521,50 @@ chinese_tech:
   - 实时
   - 流式输出
   - 自纠错
+  # ---- 中文厂商 + 研究术语扩充 (2026-05) ----
+  # 中国 LLM 厂商 (官方中文名)
+  - 通义千问
+  - 深度求索
+  - 豆包
+  - 混元
+  - 智谱
+  - 月之暗面
+  - 百川
+  - 阶跃星辰
+  - 海螺
+  - 零一万物
+  # Agent / research 中文术语
+  - 长视野任务
+  - 长周期任务
+  - 检索增强生成
+  - 知识图谱
+  - 模型上下文协议
+  - 多智能体
+  - 过程奖励模型
+  - 推理时算力
+  - 弱到强泛化
+  - 树状思维
+  # ---- Continual Learning + LHA 中文 (2026-05) ----
+  - 灾难性遗忘
+  - 终身学习
+  - 经验回放
+  - 持续预训练
+  - 持续微调
+  - 知识编辑
+  - 测试时训练
+  - 持续强化学习
+  - 自我改进智能体
+  - 可塑性-稳定性困境
+  - 技能库
+  - 情景记忆
+  - 语义记忆
+  - 记忆巩固
+  - 课程学习
+  - 世界模型
+  - 基于模型的强化学习
+  - 智能体技能习得
+  - 持续智能体学习
+  - 离线强化学习
 
 english_tech_general:
   # 纯英文 dev/CLI 高频词，不属于产品名/框架名但同样需要 boost
@@ -428,7 +663,6 @@ user_added:
   - "current session"
   - "lead agent"
   - "HappyCoder"
-  - "Scriptable"
   - "Max Effort"
   - "Extra High Effort"
   - "Continual Learning"
@@ -463,6 +697,120 @@ mappings:
   "撒贝 agent": "subagent"
   "四大杯间的": "subagent"
   "四大杯间": "subagent"
-  # Scriptable (iOS widget/scripting app) — Qwen3-ASR has heard it as "scribble"
-  # (Apple Pencil handwriting feature) when language="Chinese" is locked.
-  "scribble": "Scriptable"
+  "一点七 B": "1.7B"
+  "一点七B": "1.7B"
+  "一点七比": "1.7B"
+  "1.7 B": "1.7B"
+  "前文3": "Qwen3"
+  "前文 3": "Qwen3"
+  "千问3": "Qwen3"
+  "千问 3": "Qwen3"
+  "Queen 3": "Qwen3"
+  "千问2": "Qwen2"
+  "千问2点5": "Qwen2.5"
+  "千问2点五": "Qwen2.5"
+  "千问二点五": "Qwen2.5"
+  "千问3点5": "Qwen3.5"
+  "千问3点五": "Qwen3.5"
+  "千问三点五": "Qwen3.5"
+  "千问3点6": "Qwen3.6"
+  "千问3点六": "Qwen3.6"
+  "千问三点六": "Qwen3.6"
+  "Qwen2点5": "Qwen2.5"
+  "Qwen2点五": "Qwen2.5"
+  "Qwen3点5": "Qwen3.5"
+  "Qwen3点五": "Qwen3.5"
+  "Qwen3点6": "Qwen3.6"
+  "Qwen3点六": "Qwen3.6"
+  # ---- LLM 模型名 ASR 谐音 (2026-05) ----
+  "拉马": "Llama"
+  "拉玛": "Llama"
+  "杰米尼": "Gemini"
+  "杰敏尼": "Gemini"
+  "克劳德": "Claude"
+  "克老德": "Claude"
+  "柯劳德": "Claude"
+  "格罗克": "Grok"
+  "咕噜克": "Grok"
+  "骨肉克": "Grok"
+  "迪普斯克": "DeepSeek"
+  "地脊克": "DeepSeek"
+  "Deep Seek": "DeepSeek"
+  "米斯特拉": "Mistral"
+  "密斯特罗": "Mistral"
+  "杰马": "Gemma"
+  "奇迷": "Kimi"
+  "启迷": "Kimi"
+  # ---- 研究方法谐音 ----
+  "瑞艾克特": "ReAct"
+  "Re Act": "ReAct"
+  "瑞 Act": "ReAct"
+  "瑞弗莱克绅": "Reflexion"
+  # ---- 工具/框架谐音 ----
+  "兰格瑞夫": "LangGraph"
+  "兰格拉夫": "LangGraph"
+  "蓝格瑞夫": "LangGraph"
+  "兰链": "LangChain"
+  "拉玛索引": "LlamaIndex"
+  "奥托 Gen": "AutoGen"
+  "克兰": "Cline"
+  "卡瑟": "Cursor"
+  "Curso": "Cursor"
+  "肯提纽": "Continue"
+  "康廷纽": "Continue"
+  "兰福斯": "Langfuse"
+  "朗福斯": "Langfuse"
+  "派丹 AI": "Pydantic AI"
+  "斯莫 agents": "smolagents"
+  "泽德": "Zed"
+  "威斯博": "Whisper"
+  "维斯柏": "Whisper"
+  # ---- 中文厂商名谐音 ----
+  "火山多包": "火山豆包"
+  "豆宝": "豆包"
+  "逗宝": "豆包"
+  "浑源": "混元"
+  "混源": "混元"
+  # ---- 常用模型尺寸 (中文数字→arabic, 仅特定 B 后缀,不影响日常)
+  "零点六 B": "0.6B"
+  "零点六B": "0.6B"
+  "零点五 B": "0.5B"
+  "零点五B": "0.5B"
+  "一点五 B": "1.5B"
+  "一点五B": "1.5B"
+  # ---- Foreign LLM 谐音 (2026-05, 跳过 罗马/雪崩/猎鹰/花岗岩/北极 等会撞日常中文的) ----
+  "占吧": "Jamba"
+  "贾姆巴": "Jamba"
+  "詹巴": "Jamba"
+  "奥尔摩": "OLMo"
+  "欧摩": "OLMo"
+  "格兰尼特": "Granite"
+  "格然尼特": "Granite"
+  "内摩创": "Nemotron"
+  "尼摩创": "Nemotron"
+  "瑞卡": "Reka"
+  "扣得斯拉": "Codestral"
+  "科德斯特拉": "Codestral"
+  "马吉斯特拉": "Magistral"
+  "麦吉斯特": "Magistral"
+  "皮克斯特拉": "Pixtral"
+  "派克斯特拉": "Pixtral"
+  "德夫斯特拉": "Devstral"
+  "法尔康": "Falcon"
+  "法尔肯": "Falcon"
+  "命令R": "Command-R"
+  "康曼德R": "Command-R"
+  # ---- LHA + CL 谐音 ----
+  "阿利塔": "Alita"
+  "爱丽达": "Alita"
+  "莱茨": "LATS"
+  "拉茨": "LATS"
+  "阿瓦朗奇": "Avalanche"
+  "美密特": "MEMIT"
+  "美迷特": "MEMIT"
+  # ---- iPhone 实测追加 (Qwen3-ASR 2026-05) ----
+  "hybrid member": "hybrid Mamba"
+  "member 架构": "Mamba 架构"
+  "曼巴": "Mamba"
+  "三陪姐的": "subagent"
+  "三陪姐": "subagent"
