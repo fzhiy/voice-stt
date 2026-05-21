@@ -446,8 +446,8 @@ user_added:
 # - 仅作用于 final, 不作用于 partial (避免 partial 一闪一变让用户分神).
 # - LHS 大小写不敏感; RHS 大小写保留; 多 mapping 时长 LHS 优先, 避免子串吞并.
 # - ASCII LHS 用 \b 词边界保护; 含 CJK 的 LHS 走子串替换 (CJK 之间没 \b).
-# - 写入由 .claude/skills/vocab/SKILL.md 负责: 五条白名单过滤规则把关 (短词/常用词/
-#   Levenshtein 过大/恒等替换 -> 丢弃), 避免污染常用对话. 直接手写也可以.
+# - 推荐用脚本/agent 维护 (用五条白名单过滤规则把关: 短词/常用词/Levenshtein
+#   过大/恒等替换 -> 丢弃, 避免污染常用对话). 直接手写也完全 OK.
 # - LHS 含空格 / 标点的务必用引号包起来, 防 yaml 解析歧义.
 # 例:
 # mappings:

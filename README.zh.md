@@ -161,9 +161,10 @@ provider 火山豆包 / 腾讯云 / 讯飞; 零 GPU 的 sherpa-onnx CPU 路径;
 **下一步、未实现**(参考 [joewongjc/type4me](https://github.com/joewongjc/type4me)
 的功能集):
 
-- **词汇管理 skill**(`.claude/skills/vocab/SKILL.md`)—— 你说「Qwen3.5 被
-  识别成 Queen 3.5」, agent 自动推 3-8 个谐音变体写进 `hotwords.yaml`
-  `mappings:` 段, 再用现有 `add-hotword.sh` 部署。把手写 YAML 包成自然语言。
+- **AI agent 管词汇** —— 你说「Qwen3.5 被识别成 Queen 3.5」, 一个编码
+  agent(比如一个 Claude Code skill, 本仓库未自带)自动推 3-8 个谐音变体
+  写进 `hotwords.yaml` `mappings:` 段, 再用现有 `add-hotword.sh` 部署。
+  把手写 YAML 包成自然语言。
 - **分模式热键** —— 网关已经实现 polish / translate / prompt-optimize /
   custom 后处理模式, 计划用 `Shift+Alt+1/2/3` 暴露, 免去改 `.env`。
 - **历史 CSV 导出** —— 恢复日志已是 JSONL, 补一个导出便于表格审阅。

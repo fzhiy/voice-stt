@@ -242,11 +242,11 @@ path; `Shift+Alt+E` backend toggle.
 **Next, not yet implemented** (inspired by [joewongjc/type4me](https://github.com/joewongjc/type4me)'s
 feature set):
 
-- **Vocab management skill** (`.claude/skills/vocab/SKILL.md`) — say
-  "Qwen3.5 was misheard as Queen 3.5" and an agent infers 3-8 phonetic
-  variants and writes them into `hotwords.yaml` `mappings:`, then deploys
-  via the existing `add-hotword.sh`. Wraps the manual YAML edit in natural
-  language.
+- **Vocab management via an AI agent** — say "Qwen3.5 was misheard as
+  Queen 3.5" and a coding agent (e.g. a Claude Code skill, not bundled in
+  this repo) infers 3-8 phonetic variants and writes them into
+  `hotwords.yaml` `mappings:`, then deploys via the existing
+  `add-hotword.sh`. Wraps the manual YAML edit in natural language.
 - **Per-mode hotkeys** — the gateway already implements polish / translate /
   prompt-optimize / custom post-process modes server-side; expose them as
   `Shift+Alt+1/2/3` instead of requiring a `.env` edit.
