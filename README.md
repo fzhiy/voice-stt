@@ -3,7 +3,7 @@
 **([简体中文](./README.zh.md) | English)**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v0.1.0-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.1.1-green.svg)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-blue.svg)](#install)
 
 > **Sub-second voice-to-paste for Windows + WSL.** Push-to-talk dictation
@@ -237,7 +237,10 @@ scenario too, it should fit cleanly.
 
 **Shipped since v0.1** (now in the codebase): pluggable `ASRProvider` ABC;
 cloud providers Volcano 火山豆包 / Tencent / 讯飞; zero-GPU sherpa-onnx CPU
-path; `Shift+Alt+E` backend toggle.
+path; `Shift+Alt+E` backend toggle; OpenAI-compatible Bearer ASR provider
+(`openai-compat` slot in the backend cycle); gateway post-process mode
+`strict_correction` (homophone/term fix without rewriting tone); custom-mode
+prompt variables `{text}` / `{selected}` / `{clipboard}`.
 
 **Next, not yet implemented** (inspired by [joewongjc/type4me](https://github.com/joewongjc/type4me)'s
 feature set):
@@ -252,10 +255,9 @@ feature set):
   `Shift+Alt+1/2/3` instead of requiring a `.env` edit.
 - **History CSV export** — recovery JSONL exists; add an export path for
   spreadsheet review.
-- **Prompt variables** — `{text}` / `{selected}` / `{clipboard}` substitution
-  in custom post-process modes (needs a Windows-side Ctrl+C selection snapshot).
-- **Strict-correction LLM post-process** — strict prompt + few-shot to fix
-  ASR homophones without rewriting meaning.
+- **Windows-side selection capture for `{selected}`** — the server-side
+  substitution shipped in v0.1.1, but wiring AHK to snapshot the active
+  selection via Ctrl+C and pass it through is still pending.
 - **Voice commands** (`undo` / `new paragraph`) — exploring vs. in-model
   self-correction.
 - **Demo GIF / screencast** — long-pending.

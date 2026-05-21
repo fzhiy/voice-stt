@@ -3,7 +3,7 @@
 **(简体中文 | [English](./README.md))**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v0.1.0-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.1.1-green.svg)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-blue.svg)](#安装)
 
 > **Windows + WSL 的亚秒级语音转写工具。** 按住热键说话, 实时显示 partial
@@ -156,7 +156,9 @@ Whisper 批量路径; 另有零 GPU 的 sherpa-onnx CPU 路径。含各级消费
 
 **v0.1 之后已实现**(已进代码库): 可插拔 `ASRProvider` 抽象基类; 云端
 provider 火山豆包 / 腾讯云 / 讯飞; 零 GPU 的 sherpa-onnx CPU 路径;
-`Shift+Alt+E` 后端切换。
+`Shift+Alt+E` 后端切换; OpenAI 兼容 Bearer ASR provider(后端轮换里的
+`openai-compat` 槽); 网关后处理模式 `strict_correction`(只修同音字/术语,
+不改语气); custom 模式的 prompt 变量 `{text}` / `{selected}` / `{clipboard}`。
 
 **下一步、未实现**(参考 [joewongjc/type4me](https://github.com/joewongjc/type4me)
 的功能集):
@@ -168,9 +170,8 @@ provider 火山豆包 / 腾讯云 / 讯飞; 零 GPU 的 sherpa-onnx CPU 路径;
 - **分模式热键** —— 网关已经实现 polish / translate / prompt-optimize /
   custom 后处理模式, 计划用 `Shift+Alt+1/2/3` 暴露, 免去改 `.env`。
 - **历史 CSV 导出** —— 恢复日志已是 JSONL, 补一个导出便于表格审阅。
-- **Prompt 变量** —— custom 模式里支持 `{text}` / `{selected}` / `{clipboard}`
-  替换(需 Windows 侧 Ctrl+C 抓选区)。
-- **严约束 LLM 后处理** —— 严提示词 + few-shot, 只修 ASR 同音字不改语义。
+- **Windows 侧抓选区 for `{selected}`** —— 服务器端变量替换 v0.1.1 已上线,
+  但 AHK 通过 Ctrl+C 抓当前选区并透传过去这部分仍待做。
 - **语音命令**(撤销 / 换段)—— 探索中, 跟模型内 self-correction 权衡。
 - **Demo GIF / 录屏** —— 长期待办。
 

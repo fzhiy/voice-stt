@@ -151,5 +151,6 @@ If you had a working setup before this open-source release:
 
 ---
 
-[Unreleased]: https://github.com/fzhiy/voice-stt/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/fzhiy/voice-stt/compare/v0.1.1...HEAD
+[v0.1.1]: https://github.com/fzhiy/voice-stt/releases/tag/v0.1.1
 [v0.1.0]: https://github.com/fzhiy/voice-stt/releases/tag/v0.1.0
