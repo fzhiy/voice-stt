@@ -145,22 +145,40 @@ class Qwen3ASRBackend(FinalPassBackend):
     def tokenizer(self):
         """Return the underlying tokenizer (Qwen2TokenizerFast-compatible).
 
-        Raises AttributeError if the model has not been loaded yet (self._model
-        is None) or if the backend fell back to transformers (which doesn't
-        expose a processor.tokenizer). Only vLLM path needs this for trie build.
+        Lazy-resolves when self._model is None AND would_use_vllm is True
+        (the pre-fork trie build path) via a standalone Qwen3ASRProcessor
+        load — no model weights pulled, just tokenizer config + merges.txt
+        + vocab.json (~1-2s on cold cache). Cached on self._tokenizer_cache
+        so repeated property reads are free.
+
+        After load(), returns the live self._model.processor.tokenizer.
+
+        Raises AttributeError only when would_use_vllm is False (e.g.,
+        QWEN3_BACKEND=transformers fallback path doesn't need this and
+        the underlying object structure differs).
         """
-        if self._model is None:
+        if self._model is not None:
+            try:
+                return self._model.processor.tokenizer
+            except AttributeError as exc:
+                raise AttributeError(
+                    f"Qwen3ASRBackend.tokenizer: unexpected loaded-model structure ({exc}). "
+                    "Check qwen_asr version."
+                ) from exc
+
+        if not self.would_use_vllm:
             raise AttributeError(
-                "Qwen3ASRBackend.tokenizer accessed before load() — call load() first, "
-                "or use a standalone Qwen3ASRProcessor.from_pretrained() for pre-fork trie build."
+                "Qwen3ASRBackend.tokenizer is only available on the vLLM path "
+                "(QWEN3_BACKEND=vllm or auto). Current backend would not use vLLM."
             )
-        try:
-            return self._model.processor.tokenizer
-        except AttributeError as exc:
-            raise AttributeError(
-                f"Qwen3ASRBackend.tokenizer: unexpected model structure ({exc}). "
-                "Check qwen_asr version or use Qwen3ASRProcessor.from_pretrained()."
-            ) from exc
+
+        cached = getattr(self, "_tokenizer_cache", None)
+        if cached is not None:
+            return cached
+        from qwen_asr.core.transformers_backend import Qwen3ASRProcessor
+        cached = Qwen3ASRProcessor.from_pretrained(QWEN3_ASR_PATH).tokenizer
+        self._tokenizer_cache = cached
+        return cached
 
     def update_context(self, context: str) -> None:
         """Server calls this from reload_vocab() to keep QWEN3_CONTEXT fresh (I5)."""

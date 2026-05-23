@@ -385,12 +385,10 @@ if (TRIE_BIASING_ENABLED and _IS_MAIN_PROCESS
         and getattr(final_backend, "would_use_vllm", False)):
     # Trie MUST be set BEFORE final_backend.load() — vLLM forks EngineCore during load(),
     # and the subprocess inherits main memory at fork time. Post-load set_trie is invisible.
+    # tokenizer property lazy-resolves Qwen3ASRProcessor standalone (no GPU/model weights).
     from biasing import state as _biasing_state, trie as _biasing_trie
-    from backends.qwen3_asr import QWEN3_ASR_PATH as _QWEN3_ASR_PATH
     _trie_terms = load_qwen3_terms(HOTWORDS_FILE)
-    from qwen_asr.core.transformers_backend import Qwen3ASRProcessor
-    _trie_tokenizer = Qwen3ASRProcessor.from_pretrained(_QWEN3_ASR_PATH).tokenizer
-    _trie_root = _biasing_trie.build_trie(_trie_terms, _trie_tokenizer)
+    _trie_root = _biasing_trie.build_trie(_trie_terms, final_backend.tokenizer)
     _biasing_state.set_trie(_trie_root)
     log(f"trie biasing: built {_biasing_trie.count_nodes(_trie_root)} nodes for {len(_trie_terms)} terms, pre-fork")
 if final_backend is not None and _IS_MAIN_PROCESS:
