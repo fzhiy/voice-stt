@@ -104,6 +104,10 @@ LEARN_TIMEOUT = int(os.environ.get("LEARN_TIMEOUT", "30"))
 # 热词词典：boost Paraformer 对这些词的概率
 HOTWORDS_FILE = os.environ.get("HOTWORDS_FILE", str(Path(__file__).parent / "hotwords.yaml"))
 cfg.warn_if_path_missing("HOTWORDS_FILE", HOTWORDS_FILE)
+# Trie biasing: register vLLM LogitsProcessor that boosts hotword token paths.
+# Startup-only — changes during server lifetime (incl. SIGUSR1 reload) are ignored.
+# Default off; flip to 1 after A/B. See docs/CONFIG.md "Trie Biasing" section.
+TRIE_BIASING_ENABLED = os.environ.get("TRIE_BIASING_ENABLED", "0") not in ("0", "false", "no", "")
 
 def log(*a):
     print(f"[{time.strftime('%H:%M:%S')}]", *a, flush=True)
@@ -140,6 +144,27 @@ def load_hotwords(path: str) -> str:
         return ""
 
 
+def _collect_qwen3_terms(data: dict) -> list[str]:
+    """Shared helper: extract deduped ordered term list from a loaded YAML dict.
+
+    Iterates every top-level list section (english_context_terms, paraformer_hotwords,
+    user_added, auto_promoted, legacy category names, etc.) while SKIPPING non-list
+    sections such as `mappings:` and `snippets:`. Returns terms in encounter order,
+    deduplicated. Multi-word terms (e.g. 'Claude Code') are preserved as single entries.
+    """
+    seen: set[str] = set()
+    terms: list[str] = []
+    for _cat, items in data.items():
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            t = str(item).strip()
+            if t and t not in seen:
+                seen.add(t)
+                terms.append(t)
+    return terms
+
+
 def load_qwen3_context(path: str) -> str:
     """构造给 Qwen3-ASR transcribe(context=...) 的 system prompt.
 
@@ -162,16 +187,7 @@ def load_qwen3_context(path: str) -> str:
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-        seen = set()
-        terms = []
-        for _cat, items in data.items():
-            if not isinstance(items, list):
-                continue
-            for item in items:
-                t = str(item).strip()
-                if t and t not in seen:
-                    seen.add(t)
-                    terms.append(t)
+        terms = _collect_qwen3_terms(data)
         if not terms:
             return ""
         glossary = ", ".join(terms)
@@ -179,6 +195,22 @@ def load_qwen3_context(path: str) -> str:
     except Exception as e:
         log(f"failed to build qwen3 context from {path}: {e} (fallback empty)")
         return ""
+
+
+def load_qwen3_terms(path: str) -> list[str]:
+    """Return the deduped flat term list from hotwords.yaml for trie biasing.
+
+    Returns the same set of terms as _collect_qwen3_terms on the loaded YAML —
+    skipping non-list sections (mappings, snippets). Multi-word terms like
+    'Claude Code' are preserved as single entries. Returns [] on failure.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        return _collect_qwen3_terms(data)
+    except Exception as e:
+        log(f"failed to load qwen3 terms from {path}: {e} (fallback empty list)")
+        return []
 
 
 
@@ -281,6 +313,8 @@ def reload_vocab() -> None:
         SNIPPETS = new_sn
         MAPPINGS = new_mp
         _seed_backend_state()
+        if TRIE_BIASING_ENABLED:
+            log("hotwords.yaml changed; TRIE is fork-time-snapshot, restart required to refresh biasing trie")
         log(f"vocab reloaded: {len(HOTWORDS.split())} hotwords, "
             f"{len(SNIPPETS)} snippets, {len(MAPPINGS)} mappings, "
             f"{len(QWEN3_CONTEXT)} ctx chars")
@@ -346,6 +380,19 @@ try:
 except ValueError as e:
     log(f"FATAL: {e}")
     sys.exit(1)
+if (TRIE_BIASING_ENABLED and _IS_MAIN_PROCESS
+        and final_backend is not None
+        and getattr(final_backend, "would_use_vllm", False)):
+    # Trie MUST be set BEFORE final_backend.load() — vLLM forks EngineCore during load(),
+    # and the subprocess inherits main memory at fork time. Post-load set_trie is invisible.
+    from biasing import state as _biasing_state, trie as _biasing_trie
+    from backends.qwen3_asr import QWEN3_ASR_PATH as _QWEN3_ASR_PATH
+    _trie_terms = load_qwen3_terms(HOTWORDS_FILE)
+    from qwen_asr.core.transformers_backend import Qwen3ASRProcessor
+    _trie_tokenizer = Qwen3ASRProcessor.from_pretrained(_QWEN3_ASR_PATH).tokenizer
+    _trie_root = _biasing_trie.build_trie(_trie_terms, _trie_tokenizer)
+    _biasing_state.set_trie(_trie_root)
+    log(f"trie biasing: built {_biasing_trie.count_nodes(_trie_root)} nodes for {len(_trie_terms)} terms, pre-fork")
 if final_backend is not None and _IS_MAIN_PROCESS:
     final_backend.load()
 

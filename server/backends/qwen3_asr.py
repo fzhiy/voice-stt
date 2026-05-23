@@ -41,6 +41,7 @@ QWEN3_LANGUAGE = os.environ.get("QWEN3_LANGUAGE", "none").strip()
 # (matches the qwen_asr package's own demo defaults). Higher value is safe with
 # vLLM — it allocates KV cache per actual emission, not the cap.
 QWEN3_MAX_NEW_TOKENS = int(os.environ.get("QWEN3_MAX_NEW_TOKENS", "4096"))
+TRIE_BIASING_ENABLED = os.environ.get("TRIE_BIASING_ENABLED", "0") not in ("0", "false", "no", "")
 
 
 def _log(*a):
@@ -109,6 +110,9 @@ class Qwen3ASRBackend(FinalPassBackend):
         if QWEN3_VLLM_CPU_OFFLOAD_GB > 0:
             kwargs["cpu_offload_gb"] = QWEN3_VLLM_CPU_OFFLOAD_GB
             _log(f"  enabling vLLM cpu_offload_gb={QWEN3_VLLM_CPU_OFFLOAD_GB}")
+        if TRIE_BIASING_ENABLED:
+            from biasing.hotword_lp import HotwordTriePerReqLP  # deferred — keeps vLLM/torch off the flag-off path
+            kwargs["logits_processors"] = [HotwordTriePerReqLP]
         return Qwen3ASRModel.LLM(QWEN3_ASR_PATH, **kwargs)
 
     def _load_transformers(self):
@@ -126,6 +130,37 @@ class Qwen3ASRBackend(FinalPassBackend):
     def engine_actual(self) -> str | None:
         """For history metadata. Returns 'vllm' / 'transformers' / None (I7)."""
         return self._engine_actual
+
+    @property
+    def would_use_vllm(self) -> bool:
+        """True if this backend will attempt to load via vLLM (checked pre-load).
+
+        Used by funasr-stream-server.py to gate the pre-fork trie build without
+        calling load() first. Reads QWEN3_BACKEND at module-import time (same
+        source as the load() decision).
+        """
+        return QWEN3_BACKEND in ("vllm", "auto")
+
+    @property
+    def tokenizer(self):
+        """Return the underlying tokenizer (Qwen2TokenizerFast-compatible).
+
+        Raises AttributeError if the model has not been loaded yet (self._model
+        is None) or if the backend fell back to transformers (which doesn't
+        expose a processor.tokenizer). Only vLLM path needs this for trie build.
+        """
+        if self._model is None:
+            raise AttributeError(
+                "Qwen3ASRBackend.tokenizer accessed before load() — call load() first, "
+                "or use a standalone Qwen3ASRProcessor.from_pretrained() for pre-fork trie build."
+            )
+        try:
+            return self._model.processor.tokenizer
+        except AttributeError as exc:
+            raise AttributeError(
+                f"Qwen3ASRBackend.tokenizer: unexpected model structure ({exc}). "
+                "Check qwen_asr version or use Qwen3ASRProcessor.from_pretrained()."
+            ) from exc
 
     def update_context(self, context: str) -> None:
         """Server calls this from reload_vocab() to keep QWEN3_CONTEXT fresh (I5)."""

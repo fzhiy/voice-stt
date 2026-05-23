@@ -95,3 +95,23 @@ Runtime files written by voice-stt (not in `.env` — controlled by the code):
 | `%LOCALAPPDATA%\voice-stt\stream-ws-trace.log` | WebSocket trace log |
 | `%LOCALAPPDATA%\voice-stt\mic-daemon-<pid>.log` | Warm-capture daemon log |
 | `%TEMP%\voice-stt-*.wav` | Temporary recording files (deleted after upload) |
+
+---
+
+## Trie Biasing (experimental)
+
+Token-id trie logits processor for Qwen3-ASR vLLM decoding. Reads hotwords from
+`server/hotwords.yaml` and biases the vLLM decoder toward those token paths at
+every decode step.
+
+**Server-side env vars (GPU host):**
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `TRIE_BIASING_ENABLED` | `0` | Set `1` to enable. Only active when `USE_QWEN3_ASR=1` and `QWEN3_BACKEND=vllm` (or `auto` resolving to vLLM). |
+| `TRIE_LAMBDA` | `5.0` | Logit bonus added to biased token positions. Increase for stronger recall; decrease if precision drops. |
+
+**Design notes:**
+- The trie is built once, before `vllm.LLM()` is constructed (pre-fork), and inherited by the EngineCore subprocess via OS `fork`. Restarting the server is required to pick up hotwords.yaml changes when biasing is enabled.
+- When `TRIE_BIASING_ENABLED=0`, vLLM and torch are never imported on the flag-off path — safe for dev machines without a GPU stack.
+- Default is `off` — flip to `1` after A/B validation confirms no precision regression.
