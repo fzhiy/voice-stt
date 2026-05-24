@@ -386,11 +386,18 @@ if (TRIE_BIASING_ENABLED and _IS_MAIN_PROCESS
     # Trie MUST be set BEFORE final_backend.load() — vLLM forks EngineCore during load(),
     # and the subprocess inherits main memory at fork time. Post-load set_trie is invisible.
     # tokenizer property lazy-resolves Qwen3ASRProcessor standalone (no GPU/model weights).
+    # Wrapped in try/except: if anything in the build path fails (tokenizer load, qwen_asr
+    # API drift, build_trie), degrade to trie=None so the server still starts. LP returns
+    # None per-request when trie is None (lp-graceful-degradation invariant).
     from biasing import state as _biasing_state, trie as _biasing_trie
-    _trie_terms = load_qwen3_terms(HOTWORDS_FILE)
-    _trie_root = _biasing_trie.build_trie(_trie_terms, final_backend.tokenizer)
-    _biasing_state.set_trie(_trie_root)
-    log(f"trie biasing: built {_biasing_trie.count_nodes(_trie_root)} nodes for {len(_trie_terms)} terms, pre-fork")
+    try:
+        _trie_terms = load_qwen3_terms(HOTWORDS_FILE)
+        _trie_root = _biasing_trie.build_trie(_trie_terms, final_backend.tokenizer)
+        _biasing_state.set_trie(_trie_root)
+        log(f"trie biasing: built {_biasing_trie.count_nodes(_trie_root)} nodes for {len(_trie_terms)} terms, pre-fork")
+    except Exception as e:
+        _biasing_state.set_trie(None)
+        log(f"trie biasing: build FAILED ({type(e).__name__}: {e}); continuing with no trie bias")
 if final_backend is not None and _IS_MAIN_PROCESS:
     final_backend.load()
 

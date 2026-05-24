@@ -198,6 +198,28 @@ def test_is_argmax_invariant_returns_false():
     assert lp.is_argmax_invariant() is False
 
 
+def test_empty_trie_no_op():
+    """(g) Codex Step 9 Low: empty trie root → LP biases nothing, no crash.
+
+    Empty trie ({"children": {}, "terminal": False}) should be a no-op for any
+    output_ids. Regression guard: if _PerReqHotwordTrieLP ever errors on
+    root.children being empty, this catches it.
+    """
+    empty_root = {"children": {}, "terminal": False}
+    lp = _PerReqHotwordTrieLP(empty_root, 5.0)
+
+    # Empty output_ids
+    logits_a = _fake_logits()
+    out_a = lp([], logits_a)
+    assert torch.equal(out_a, _fake_logits()), "Empty trie + empty output should leave logits unchanged"
+
+    # Non-empty output_ids — should also be no-op (no child to descend to)
+    logits_b = _fake_logits()
+    out_b = lp([123], logits_b)
+    assert torch.equal(out_b, _fake_logits()), "Empty trie + any token should leave logits unchanged"
+    assert lp.node is empty_root, "Cursor should stay at root (already there)"
+
+
 def test_lp_applies_correct_lambda():
     """LP applies exactly TRIE_LAMBDA to biased indices."""
     token_map = {"hi": [7], " hi": [8]}
