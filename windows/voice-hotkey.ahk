@@ -289,11 +289,22 @@ StartRenderer()
 {
     global g_RendererPid, RENDERER_AHK_SCRIPT, AHK64_EXE_PATH,
            STREAM_PARTIAL_FILE
-    if g_RendererPid && ProcessExist(g_RendererPid)
-        return   ; already running
 
     logFile := EnvGet("LOCALAPPDATA") . "\voice-stt\renderer.log"
     ts := FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss")
+
+    ; Health-check: process AND window must both be alive. WebView2 has a
+    ; known long-run leak/crash pattern where the renderer process keeps
+    ; polling but its window is silently destroyed (HWND=0). Kill the
+    ; zombie + fall through to respawn so the next dictation gets a fresh
+    ; preview instead of nothing.
+    if g_RendererPid && ProcessExist(g_RendererPid) {
+        if WinExist("ahk_pid " . g_RendererPid)
+            return   ; happy path: process + window both alive
+        try FileAppend("[" ts "] [zombie] pid=" g_RendererPid " process alive but window gone; killing + respawning`n", logFile, "UTF-8")
+        try ProcessClose(g_RendererPid)
+        g_RendererPid := 0
+    }
 
     if !FileExist(RENDERER_AHK_SCRIPT) {
         TrayTip "renderer 启动失败", "找不到 " RENDERER_AHK_SCRIPT, 3
