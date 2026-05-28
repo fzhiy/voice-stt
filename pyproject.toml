@@ -46,9 +46,9 @@ dev = [
 #   CPU (zero-GPU) : sherpa-onnx
 
 [project.urls]
-Homepage = "https://github.com/fzhiy/voice-stt"
-Repository = "https://github.com/fzhiy/voice-stt"
-Changelog = "https://github.com/fzhiy/voice-stt/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/fzhiy/asr-anywhere"
+Repository = "https://github.com/fzhiy/asr-anywhere"
+Changelog = "https://github.com/fzhiy/asr-anywhere/blob/main/CHANGELOG.md"
 
 [tool.ruff]
 line-length = 100

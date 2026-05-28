@@ -1,7 +1,9 @@
 # ASR Anywhere
 
-> *Formerly `voice-stt`. Repo URL, install dir, and identifiers still use the
-> old name until the Phase 2 rename — see [TODO_RENAME.md](TODO_RENAME.md).*
+> *Formerly `voice-stt`. GitHub repo renamed 2026-05-28 — old URL still
+> auto-redirects. Windows install dir, env var names, and internal
+> identifiers still use the old name; full path/identifier rename tracked
+> in [TODO_RENAME.md](TODO_RENAME.md).*
 
 **([简体中文](./README.zh.md) | English)**
 

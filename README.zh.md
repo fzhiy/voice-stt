@@ -1,7 +1,8 @@
 # ASR Anywhere
 
-> *原名 `voice-stt`。Repo URL / install dir / 内部 identifier 仍用旧名,
-> 等 Phase 2 整改一次到位 —— 见 [TODO_RENAME.md](TODO_RENAME.md)。*
+> *原名 `voice-stt`。GitHub repo 已于 2026-05-28 重命名 —— 旧 URL 自动重定向。
+> Windows install dir / env var / 内部 identifier 仍用旧名,完整路径/标识符
+> 重命名见 [TODO_RENAME.md](TODO_RENAME.md)。*
 
 **(简体中文 | [English](./README.md))**
 

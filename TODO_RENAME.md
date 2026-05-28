@@ -14,14 +14,13 @@ Pick this up in a future session with a dedicated time window of ~1.5–3h.
 
 Each step is independently revertible. Run them top-to-bottom; **do not skip**.
 
-### 1. GitHub repo URL rename (90s, low-risk — GitHub auto-redirects)
+### ~~1. GitHub repo URL rename~~ — **DONE 2026-05-28**
 
-- `gh repo rename asr-anywhere` (from inside the working tree), OR
-- GitHub web UI → Settings → Repository name → `asr-anywhere`.
-- Local: `git remote set-url origin git@github.com:fzhiy/asr-anywhere.git`.
-- Verify: `git ls-remote origin` succeeds.
-- **Old URL `github.com/fzhiy/voice-stt` keeps working via GitHub's permanent redirect** —
-  no rush to update existing links.
+`gh repo rename asr-anywhere -y` succeeded. Local remote updated to
+`git@github.com:fzhiy/asr-anywhere.git`. Verified `git ls-remote origin` resolves
+to the latest commit. pyproject.toml URL fields updated to the new repo URL.
+Old URL `github.com/fzhiy/voice-stt` auto-redirects (verified via
+`gh repo view fzhiy/voice-stt --json url,name` returning the new name).
 
 ### 2. Local repo directory rename
 
