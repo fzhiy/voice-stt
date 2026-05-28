@@ -1,15 +1,24 @@
-# voice-stt
+# ASR Anywhere
+
+> *原名 `voice-stt`。Repo URL / install dir / 内部 identifier 仍用旧名,
+> 等 Phase 2 整改一次到位 —— 见 [TODO_RENAME.md](TODO_RENAME.md)。*
 
 **(简体中文 | [English](./README.md))**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v0.1.1-green.svg)](CHANGELOG.md)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-blue.svg)](#安装)
+[![Version](https://img.shields.io/badge/version-v0.1.3-green.svg)](CHANGELOG.md)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2B%20%7C%20iOS-blue.svg)](#安装)
 
-> **Windows + WSL 的亚秒级语音转写工具。** 按住热键说话, 实时显示 partial
-> 字幕, 松开瞬间最终文本粘贴到当前输入框。**可插拔 ASR 后端** —— 既能完全
-> 自托管 (FunASR Paraformer 流式 + Qwen3-ASR-1.7B, 12 GB 消费级 GPU), 也能
-> 指向云端 (火山豆包 / 腾讯云 / 讯飞)。默认零云依赖。
+> **自托管实时 ASR 服务,可从 Windows 任何应用或 iPhone**(通过
+> [HappyCoder](https://github.com/slopus/happy))**直接调用**,Mac/Android
+> 等平台只需写客户端即可接入。按住热键说话,实时 partial 字幕,松开粘贴。
+> **可插拔 ASR 后端** —— 自托管(FunASR Paraformer 流式 + Qwen3-ASR-1.7B
+> + trie 热词偏置,12 GB 消费级 GPU),或指向云端(火山豆包 / 腾讯云 / 讯飞
+> / OpenAI 兼容)。默认零云依赖。
+>
+> **当前已上线客户端**:Windows(AHK + PowerShell)· iOS(HappyCoder)。
+> **服务端**:任意 Linux + NVIDIA GPU;客户端只需会发 WebSocket + 16 kHz
+> PCM,**服务端不识别客户端类型**(纯 ASR backend,平台中性)。
 
 ```
 Shift+Alt+S  →  按住说话, 松开粘贴  (流式 + 实时预览)

@@ -1,4 +1,7 @@
-# voice-stt Configuration Reference
+# ASR Anywhere Configuration Reference
+
+> *Formerly `voice-stt`. Install paths below still reference the old name —
+> see [TODO_RENAME.md](../TODO_RENAME.md) for the path rename plan.*
 
 All configuration is in `.env`, created from `.env.example`. Its location:
 

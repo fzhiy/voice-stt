@@ -1,8 +1,8 @@
 # Hotkeys & customization
 
-voice-stt ships with four push-to-talk hotkeys, all defined in
-`windows/voice-hotkey.ahk` (AutoHotkey v2). For most users the defaults are
-enough — you don't need to change anything.
+ASR Anywhere (Windows client) ships with four push-to-talk hotkeys, all
+defined in `windows/voice-hotkey.ahk` (AutoHotkey v2). For most users the
+defaults are enough — you don't need to change anything.
 
 ## Default bindings
 

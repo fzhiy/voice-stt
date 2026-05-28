@@ -1,7 +1,10 @@
 # Architecture
 
-voice-stt is a **two-process system**: a Windows client captures audio and
-renders the caption, and a Linux GPU host runs the ASR models.
+ASR Anywhere (formerly `voice-stt`) is a **client-server system**: any
+client (Windows AHK, iOS HappyCoder, future Mac/Android/Linux) captures
+audio and renders UI, and a Linux GPU host runs the ASR models. The server
+is **client-agnostic** — it only speaks WebSocket + 16 kHz int16 PCM with
+an `"EOF"` text frame to signal end-of-utterance.
 
 This doc is layered top-down — read as far as you need.
 

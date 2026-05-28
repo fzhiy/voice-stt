@@ -68,7 +68,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
-# Project-specific rules (voice-stt)
+# Project-specific rules (ASR Anywhere, formerly voice-stt)
 
 Added 2026-05-21. Calibrated against the Karpathy guidelines above (general behavior); this section adds project-specific operational rules. Private operational rules (host details, credentials, internal workflow) live in gitignored skill/agent files under `.claude/`, not here.
 

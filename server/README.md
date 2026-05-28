@@ -1,8 +1,9 @@
-# voice-stt GPU server setup
+# ASR Anywhere GPU server setup
 
-This guide sets up the GPU server side of voice-stt: a Linux machine with an
-NVIDIA GPU that runs the speech recognition models the Windows client connects
-to over WebSocket.
+This guide sets up the GPU server side of ASR Anywhere (formerly `voice-stt`):
+a Linux machine with an NVIDIA GPU that runs the speech recognition models
+that any client (Windows AHK, iOS HappyCoder, future Mac/Android) connects to
+over WebSocket.
 
 > **v0.1 status**: this guide captures a known-good combination — **Ubuntu
 > 22.04, Python 3.10, CUDA 13.0, NVIDIA driver ≥ 545, torch 2.4+**. Other

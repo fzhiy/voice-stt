@@ -1,17 +1,25 @@
-# voice-stt
+# ASR Anywhere
+
+> *Formerly `voice-stt`. Repo URL, install dir, and identifiers still use the
+> old name until the Phase 2 rename — see [TODO_RENAME.md](TODO_RENAME.md).*
 
 **([简体中文](./README.zh.md) | English)**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v0.1.1-green.svg)](CHANGELOG.md)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-blue.svg)](#install)
+[![Version](https://img.shields.io/badge/version-v0.1.3-green.svg)](CHANGELOG.md)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2B%20%7C%20iOS-blue.svg)](#install)
 
-> **Sub-second voice-to-paste for Windows + WSL.** Push-to-talk dictation
-> with a pluggable ASR backend — run it fully self-hosted (FunASR Paraformer
-> streaming + Qwen3-ASR-1.7B) on a 12 GB consumer GPU. Optional cloud
-> providers (火山豆包 / Tencent / 讯飞 / OpenAI-compat) are available as a
-> no-GPU fallback. Live partial-transcript preview, zero cloud dependency by
-> default.
+> **Your own real-time ASR server, callable from any Windows app or iPhone**
+> (via [HappyCoder](https://github.com/slopus/happy)), with Mac/Android as
+> plausible follow-ups. Push-to-talk dictation with a pluggable ASR backend —
+> run fully self-hosted (FunASR Paraformer streaming + Qwen3-ASR-1.7B + trie
+> hotword biasing) on a 12 GB consumer GPU. Optional cloud providers (火山豆包
+> / Tencent / 讯飞 / OpenAI-compat) are available as a no-GPU fallback. Live
+> partial-transcript preview, zero cloud dependency by default.
+>
+> **Active clients**: Windows (AHK + PowerShell) · iOS (HappyCoder).
+> **Server**: any Linux + NVIDIA GPU; client speaks WebSocket + 16 kHz PCM —
+> server is client-agnostic.
 
 ```
 Shift+Alt+S  →  hold to dictate, release to paste  (streaming + live preview)
@@ -112,7 +120,7 @@ RECORD_DEVICE_NAME=Microphone Array   # discover: record.ps1 -Diagnose
 
 ## 📝 Vocabulary management
 
-voice-stt has three layers of vocabulary control, all driven by
+ASR Anywhere has three layers of vocabulary control, all driven by
 `server/hotwords.yaml` on the GPU host:
 
 | Layer | Where | What it does |

@@ -1,6 +1,6 @@
 # ASR Providers
 
-> **Default path is self-hosted.** voice-stt ships ready to run end-to-end
+> **Default path is self-hosted.** ASR Anywhere ships ready to run end-to-end
 > against a local GPU (FunASR Paraformer + Qwen3-ASR-1.7B) — no cloud account
 > required, no audio leaves your network. **The cloud providers below
 > (Volcano / Tencent / 讯飞 / OpenAI-compat) are optional alternatives**, useful
@@ -8,7 +8,7 @@
 > community-maintained: the maintainer's daily driver is self-hosted, so cloud
 > backends are smoke-tested but receive less day-to-day validation.
 
-voice-stt's streaming path supports multiple ASR backends behind one wire
+ASR Anywhere's streaming path supports multiple ASR backends behind one wire
 protocol. The Windows AHK client and the Happy iPhone client both send int16
 PCM frames + `"EOF"` and expect `{type:partial|final}` JSON envelopes back —
 which server handles those frames is selectable per-session.

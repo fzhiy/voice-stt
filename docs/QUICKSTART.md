@@ -1,4 +1,7 @@
-# voice-stt Quick Start (5 minutes)
+# ASR Anywhere Quick Start (5 minutes)
+
+> *Formerly `voice-stt`; install dir and identifiers still use the old name
+> during Phase 1 rebrand. See [TODO_RENAME.md](../TODO_RENAME.md).*
 
 This guide takes you from nothing to your first successful push-to-talk dictation.
 

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to voice-stt are documented here.
+All notable changes to **ASR Anywhere** (formerly `voice-stt`) are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/) (pre-1.0; breaking changes allowed).
@@ -9,7 +9,44 @@ Versioning follows [Semantic Versioning](https://semver.org/) (pre-1.0; breaking
 
 ## [Unreleased]
 
-_No changes since v0.1.1._
+### Changed
+- **Project renamed `voice-stt` → ASR Anywhere** (positioning rebrand 2026-05-28).
+  This is a **file-only Phase 1 rebrand**: prose/titles/taglines/pyproject `name`
+  updated. **Repo URL, Windows install dir (`%LOCALAPPDATA%\voice-stt\`), env
+  variable names (`VOICE_STT_*`), systemd unit names (`voice-stt-<provider>.service`),
+  docker service/volume names, and GPU host path (`~/voice-stack/`) are
+  preserved** so the running setup keeps working. Phase 2 (full path/identifier
+  rename) is tracked in [`TODO_RENAME.md`](TODO_RENAME.md).
+- Rationale: project now ships on **two surfaces** (Windows AHK and iOS
+  HappyCoder, sharing the same WebSocket + 16 kHz PCM protocol),
+  with the GPU server intentionally **client-agnostic**. "ASR Anywhere"
+  captures this multi-platform reality better than "stt" — and "stt" implied
+  batch transcription, whereas the actual product is streaming + low-latency
+  + hotword-biased ASR.
+
+### Added (v0.1.3 — shipped 2026-05-27)
+- **Trie hotword biasing** for Qwen3-ASR via vLLM `LogitsProcessor` —
+  `server/biasing/{state,trie,hotword_lp}.py` (Apache-2.0). 2415-node trie
+  from 595 terms biases token logits per-request with `TRIE_LAMBDA=5.0`.
+  Trie is a fork-time snapshot — `state.set_trie()` MUST be called before
+  `final_backend.load()` because vLLM V1 EngineCore forks. Flag-gated by
+  `TRIE_BIASING_ENABLED` (default 0; GPU host now =1). Flag=0 path adds zero
+  overhead (no vLLM import, no logits_processor in kwargs — end-to-end
+  verified). Build failures degrade to `trie=None`, LP no-ops. Hot vocabulary
+  reload via `SIGUSR1` warns "restart required to refresh biasing trie"
+  (trie is fork-snapshot, hotwords list is hot-reloadable).
+- **12 mapping additions** to `server/hotwords.yaml` (Tier D, 2026-05-27):
+  `TreeRagSing`/`try biasing`/`tree biasing`/`try basing`/`tree basing` → `trie biasing`;
+  `engine call`/`engine core` → `EngineCore`;
+  `放 ASR`/`凡 ASR`/`翻 ASR`/`fan ASR`/`fun ASR` → `FunASR`.
+- **A/B validation** documented in [`handoff/v0.1.3-validation-checklist.md`](handoff/v0.1.3-validation-checklist.md):
+  flag=1 strictly improved 5 hot terms (Qwen3-ASR / Paraformer / vLLM / set_trie / Phase B)
+  with **0 regressions** vs flag=0 baseline; 3 remaining gaps (`trie biasing`/`EngineCore`
+  not in hotwords list — covered via mappings now; `FunASR` λ=5.0 not enough vs
+  Chinese-prior — λ tuning deferred to v0.1.4).
+- Optional **edge-tts readback hotkey** (`Shift+Alt+R`) — neural TTS pronunciation
+  feedback via Microsoft Edge TTS endpoint. Pure prototype, lives in install dir
+  only, not in repo; documented for future v0.1.5/v0.2 productization decision.
 
 ---
 

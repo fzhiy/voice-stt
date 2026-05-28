@@ -1,21 +1,22 @@
-# voice-stt — project metadata, dependency declaration, and tooling config.
+# ASR Anywhere (formerly voice-stt) — project metadata, dependency declaration,
+# and tooling config.
 #
-# This repo is an application (a Windows/WSL client + a Python ASR server), not
-# a published library, so it is not pip-installable as a package. This file is
-# the single source of truth for the Python server's dependencies and for the
-# ruff / pytest / mypy configuration used by CI.
+# This repo is an application (a Windows/WSL/iOS client + a Python ASR server),
+# not a published library, so it is not pip-installable as a package. This file
+# is the single source of truth for the Python server's dependencies and for
+# the ruff / pytest / mypy configuration used by CI.
 
 [project]
-name = "voice-stt"
-version = "0.1.0"
-description = "Sub-second push-to-talk voice dictation for Windows + WSL with a pluggable self-hosted / cloud ASR backend."
+name = "asr-anywhere"
+version = "0.1.3"
+description = "Self-hosted real-time ASR server callable from any Windows app or iPhone; pluggable backend (FunASR Paraformer + Qwen3-ASR-1.7B with trie biasing) or cloud fallback (火山豆包 / Tencent / 讯飞 / OpenAI-compat)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "fzhiy" }]
-keywords = ["asr", "speech-to-text", "dictation", "funasr", "qwen3-asr", "websocket"]
+keywords = ["asr", "speech-to-text", "dictation", "funasr", "qwen3-asr", "websocket", "realtime", "self-hosted", "hotword-biasing"]
 
-# Portable core shared by the voice-stt WS protocol layer (asr_common.py),
+# Portable core shared by the ASR Anywhere WS protocol layer (asr_common.py),
 # the cloud providers, and text post-processing (text_postprocess.py).
 dependencies = [
     # >=14 required: volcano-stream-server.py calls connect(additional_headers=...),
